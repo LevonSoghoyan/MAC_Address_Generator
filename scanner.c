@@ -12,7 +12,7 @@
 #include <arpa/inet.h>
 
 /*MACROS*/
-#define PORT 8080
+#define PORT 55555
 #define BUFF_SIZE 2048
 
 #define PROMPT "Client> "
@@ -64,7 +64,7 @@ void Connect(char* IP)
     } else if (strcmp(buf,"SERVER STOP") == 0) {
         Deactivate("SERVER STOP");
     } else
-    Status();  
+        Status();  
 
     return;
 }
@@ -79,12 +79,13 @@ void Shell(char* command)
         return;
     } else if (strncmp(command, "gmac", 4) == 0) {
         printf("Scanner Mode\n");
+        printf("Type 'exit' to close the CLI\n");
         while(1) {
             char* input = readline(SPROMPT);
             strncpy(buf, input, BUFF_SIZE -1);   
 
             int No_Alpha = 0;
-            while (No_Alpha < strlen(buf) && isalpha(buf[No_Alpha]) == 0) 
+            while (No_Alpha < strlen(buf) && isalnum(buf[No_Alpha]) == 0) 
                 No_Alpha++;
 
             for (int i = 0; i < BUFF_SIZE - No_Alpha; i++)
@@ -98,19 +99,18 @@ void Shell(char* command)
             if (strcmp(buf,"exit") == 0)
                 break;
             char message[BUFF_SIZE *2];
-            snprintf(message, sizeof(message), "gmac %s", buf);
-            printf("%s", message);
+            snprintf(message, sizeof(message), "gmac %s\n", buf);
             send(client_fd, message, BUFF_SIZE, 0);
             memset(buf, 0, BUFF_SIZE);
             recv(client_fd, buf, BUFF_SIZE, 0);
-            printf("%s", buf);
+            printf("%s\n", buf);
         }
         return;
     }
 
     send(client_fd, command, BUFF_SIZE, 0);
-
     recv(client_fd, buf, BUFF_SIZE, 0);
+
     while(strcmp(buf,"NULL") != 0)
     {
         printf("%s", buf);
@@ -138,7 +138,7 @@ void D_connect()
     client_fd = -1;
 }
 
-void hendle(int sig)
+void handle(int sig)
 {
     printf("SIGINT\n");
     char* command = "disconnect";
@@ -161,10 +161,10 @@ int main(int argc, char* argv[])
         char* input = readline(PROMPT);
         strncpy(buf, input, BUFF_SIZE -1);   
 
-        signal(SIGINT,hendle);
+        signal(SIGINT,handle);
 
         int No_Alpha = 0;
-        while (No_Alpha < strlen(buf) && isalpha(buf[No_Alpha]) == 0) 
+        while (No_Alpha < strlen(buf) && isalnum(buf[No_Alpha]) == 0) 
             No_Alpha++;
 
 
@@ -189,6 +189,8 @@ int main(int argc, char* argv[])
             printf("Client disconnected\n");
         } else if (strcmp(token, "gmac") == 0) {
             Shell(buf);
+        } else if (strcmp(token, "showmac") == 0) {
+            Shell(buf);
         } else if (strcmp(token, "shell") == 0) {
             Shell(buf);
         } else if (strcmp(token, "disconnect") == 0) {
@@ -200,11 +202,13 @@ int main(int argc, char* argv[])
         } else {
             printf("Usage:\n");
             printf("COMMAND                     DESCRIPTION\n");
-            printf("connect  <IP>               connect to server by <IP>\n");
-            printf("shell <command>             run <command> in server terminal\n");
-            printf("disconnect                  disconnect client \n");
-            printf("status                      show connection status\n");
-            printf("exit                        close terminal\n");
+            printf("connect  <IP>               Connect to server at <IP>\n");
+            printf("shell <command>             Run <command> in the server terminal\n");
+            printf("disconnect                  Disconnect the client \n");
+            printf("status                      Show connection status\n");
+            printf("gmac                        Open the scanner CLI\n");
+            printf("showmac                     Show your registered devices\n");
+            printf("exit                        Close the terminal\n");
         }
     }
 }

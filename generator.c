@@ -16,14 +16,15 @@
 #include "openssl/sha.h"
 #include <arpa/inet.h>
 #include <netinet/in.h>
+#include <sqlite3.h>
 
 /*MACROS*/
-#define PORT 8080
+#define PORT 55555
 #define BUFF_SIZE 2048
 #define CLIENTS_COUNT 5
 #define MAX_HISTORY   100
+#define DATA "Mac.db"
 #define DATABASE "txt.txt"
-#define LINE_LENGHT  100
 #define PROMPT "Server> "
 
 /*Global variables*/
@@ -32,8 +33,9 @@ struct sockaddr_in address;
 socklen_t add_size = sizeof(address);
 int client_fd;
 int opt = 1;
-int* history_baund;
+int* history_bound;
 char* IP;
+char cli_ip[BUFF_SIZE];
 int* C_Count;
 int* Listen;
 int *Server_Time;
@@ -65,53 +67,53 @@ typedef struct {
 PS *Processes;
 void Server_Up()
 {
-    printf("Server is Listen\n");
+    printf("Server is listen\n");
     *Listen = 1;
 }
 
 void Server_Down()
 {
-    printf("Server dont Listen\n");
+    printf("Server is not listeingn\n");
     *Listen = 0;
 }
 
 void clients()
 {
-    printf("ID       SOCKET     PID             CREATED-ON\n");
+    printf("%-6s %-10s %-10s %-24s\n", "ID", "SOCKET", "PID", "CREATED-ON");
     int id = 0;
     for(int i = 0; i < CLIENTS_COUNT; i++) {
         id++;
         if (Clients[i].socket != 0) {
-            printf("%d        %d          %d         %s", id, Clients[i].socket, Clients[i].pid, Clients[i].time);
+            printf("%-6d %-10d %-10d %-24s\n", id, Clients[i].socket, Clients[i].pid, Clients[i].time);
         }
     }
 }
 
 void Status()
 {
-    printf("ID       PORT           IP\n");
+    printf("%-6s %-8s %-16s\n", "ID", "PORT", "IP");
     int id = 0;
     for(int i = 0; i < CLIENTS_COUNT; i++) {
         id++;
         if (Clients[i].socket != 0) {
-            printf("%d        %d          %s\n", id, Clients[i].port, Clients[i].ip);
+            printf("%-6d %-8d %-16s\n", id, Clients[i].port, Clients[i].ip);
         }
     }
 }
 
 void ps()
 {
-    printf("PID       COMMAND     TIME\n");
+    printf("%-10s %-20s %-15s\n", "PID", "COMMAND", "TIME");
     for(int i = 0; i < CLIENTS_COUNT; i++) {
         if (Processes[i].pid != 0) {
-            printf("%d        %s          %ld second\n", Processes[i].pid, Processes[i].command, Processes[i].start - (*Server_Time));
+            printf("%-10d %-20s %-15ld seconds\n", Processes[i].pid, Processes[i].command, Processes[i].start - (*Server_Time));
         }
     }
 }
 
 void history()
 {
-    int curr_indx = *history_baund;
+    int curr_indx = *history_bound;
     curr_indx ++;
     printf("%-10s  %-30s  %-30s \n", "PID", "COMMAND", "RESULT");
 
@@ -122,7 +124,7 @@ void history()
         curr_indx++;
         curr_indx %= MAX_HISTORY;
     }
-    while (curr_indx != (*history_baund));
+    while (curr_indx != (*history_bound));
 }
 
 void Remove_Client(int new_client)
@@ -132,7 +134,7 @@ void Remove_Client(int new_client)
 
         if (Clients[i].socket == new_client) {
             Clients[i].socket = 0;
-            strcmp(History[(*history_baund)].result,"Disconnected");
+            strcpy(History[(*history_bound)].result,"Disconnected");
             (*C_Count)--;
             break;
         }
@@ -150,7 +152,7 @@ void Remove_Processe(int pid)
     }
 }
 
-void Add_Processe(int pid, char* command) 
+void Add_Process(int pid, char* command) 
 {
 
     for(int i = 0; i < CLIENTS_COUNT; i++) {
@@ -163,54 +165,130 @@ void Add_Processe(int pid, char* command)
     }
 }
 
-void MAC_Generator(const char* S_N) {
-    FILE *pFile = fopen(DATABASE, "r");
-    if (!pFile) {
-        printf("File opening error\n");
+void MAC_Generator(const char* S_N) 
+{
+    sqlite3* DB;
+    int exit = sqlite3_open(DATA, &DB);
+    char* err = 0;
+    char message[BUFF_SIZE * 2];
+
+    if (exit != SQLITE_OK) {
+        snprintf(message, 200, "Filed to open database:\n");
+        send(client_fd, message, strlen(message), 0);
         return;
     }
 
-    char *pLine = NULL;
-    size_t len = 0;
-    int found = 0;
-    char *Serial_num;
+    char *sql_table = "CREATE TABLE IF NOT EXISTS MAC(IP TEXT,SERIAL_NUMBER TEXT,MAC_ADDRESS TEXT);";
+    exit = sqlite3_exec(DB, sql_table, NULL, 0, &err);
+    if (exit != SQLITE_OK) {
+        snprintf(message, 200, "SQL Error creating table: %s\n", err);
+        send(client_fd, message, strlen(message), 0);
+        sqlite3_free(err);
+        return;
+    }
+    /*Chacking device registration*/
 
-    while (getline(&pLine, &len, pFile) != -1) {
-        Serial_num = strtok(pLine, " ");
-        if (strcmp(Serial_num, S_N) == 0) {
+    int found = 0;
+    sqlite3_stmt *stmt1;
+    sqlite3_stmt *stmt2;
+    sqlite3_stmt *stmt3;
+
+    sql_table = "SELECT EXISTS(SELECT 1 FROM MAC where SERIAL_NUMBER = ? );";
+    sqlite3_prepare_v2(DB, sql_table, -1, &stmt1, NULL);
+    sqlite3_bind_text(stmt1, 1, S_N, -1, SQLITE_TRANSIENT); 
+    if (sqlite3_step(stmt1) == SQLITE_ROW) {
+        if (sqlite3_column_int(stmt1, 0) > 0) {
             found = 1;
-            break; 
         }
     }
-
-    fclose(pFile);
-    char message[BUFF_SIZE];
+    sqlite3_finalize(stmt1);
 
     if (!found) {
+        /*Genereting MAC address*/
         unsigned char hash[SHA256_DIGEST_LENGTH];
-        SHA256((const unsigned char*)S_N, strlen(S_N), hash);
-
         unsigned char MAC[6];
+        char mac[BUFF_SIZE];
+
+        SHA256((const unsigned char*)S_N, strlen(S_N), hash);
         for (int i = 0; i < 6; i++) {
             MAC[i] = hash[i];
         }
 
-        FILE *pAppend = fopen(DATABASE, "a");
-        if (!pAppend) {
-            printf("File opening error for appending\n");
-            return;
-        }
+        MAC[0] &= 0XFE;
+        MAC[0] |= 0X02;
 
-        fprintf(pAppend, "%s %02X:%02X:%02X:%02X:%02X:%02X\n", S_N, MAC[0], MAC[1], MAC[2], MAC[3], MAC[4], MAC[5]);
-        snprintf(message, 200, "Serial Number %s registered in database whith MAC addres %02X:%02X:%02X:%02X:%02X:%02X .\n", S_N, MAC[0], MAC[1], MAC[2], MAC[3], MAC[4], MAC[5]);
-        send(client_fd, message, strlen(message), 0);
-        fclose(pAppend);
+        snprintf(mac, sizeof(mac), "%02X:%02X:%02X:%02X:%02X:%02X", MAC[0], MAC[1], MAC[2], MAC[3], MAC[4], MAC[5]);
+
+        sql_table = "INSERT INTO MAC VALUES(?,?,?);";
+        sqlite3_prepare_v2(DB, sql_table, -1, &stmt2, NULL);
+        
+
+        sqlite3_bind_text(stmt2, 1, cli_ip, -1, SQLITE_TRANSIENT); 
+        sqlite3_bind_text(stmt2, 2, S_N, -1, SQLITE_TRANSIENT); 
+        sqlite3_bind_text(stmt2, 3, mac, -1, SQLITE_TRANSIENT); 
+        sqlite3_step(stmt2);
+        sqlite3_finalize(stmt2);
+
+        sql_table = "SELECT * FROM MAC where SERIAL_NUMBER = ?";
+        sqlite3_prepare_v2(DB, sql_table, -1, &stmt3, NULL);
+        sqlite3_bind_text(stmt3, 1, S_N, -1, SQLITE_TRANSIENT); 
+        if (sqlite3_step(stmt3) == SQLITE_ROW) {
+            snprintf(message, 2000, "Device registered successfully. IP: %-30s | SN: %-30s | MAC: %-30s\n",
+                    sqlite3_column_text(stmt3,0),
+                    sqlite3_column_text(stmt3,1),
+                    sqlite3_column_text(stmt3,2));
+            send(client_fd, message, strlen(message), 0);
+        }
+        sqlite3_finalize(stmt3);
+
     } else {
-        Serial_num = strtok(NULL, "\n");
-        snprintf(message, 200, "Serial Number %s alrady registered in database whith MAC addres %s .\n", S_N, Serial_num);
+
+        sql_table = "SELECT * FROM MAC where SERIAL_NUMBER = ?";
+        sqlite3_prepare_v2(DB, sql_table, -1, &stmt3, NULL);
+        sqlite3_bind_text(stmt3, 1, S_N, -1, SQLITE_TRANSIENT); 
+        if (sqlite3_step(stmt3) == SQLITE_ROW) {
+            snprintf(message, 2000, "Device already registered. IP: %-30s | SN: %-30s | MAC: %-30s\n",
+                    sqlite3_column_text(stmt3,0),
+                    sqlite3_column_text(stmt3,1),
+                    sqlite3_column_text(stmt3,2));
+            send(client_fd, message, strlen(message), 0);
+        }
+        sqlite3_finalize(stmt3);
+    }
+    sqlite3_close(DB);
+}
+
+void Client_Devices(char* Client_IP)
+{
+
+    sqlite3* DB;
+    int exit = sqlite3_open(DATA, &DB);
+    char message[BUFF_SIZE * 2];
+    sqlite3_stmt *stmt3;
+
+    if (exit != SQLITE_OK) {
+        snprintf(message, 200, "Filed to open database:\n");
+        send(client_fd, message, strlen(message), 0);
+        send(client_fd, "NULL", 5, 0);
+        return;
+    }
+
+    char* err = 0;
+    char *sql_table = "SELECT * FROM MAC where IP = ?";
+    sqlite3_prepare_v2(DB, sql_table, -1, &stmt3, NULL);
+    sqlite3_bind_text(stmt3, 1, cli_ip, -1, SQLITE_TRANSIENT); 
+
+    while (sqlite3_step(stmt3) == SQLITE_ROW) {
+        snprintf(message, 2000, "Registered Device. IP: %-30s | SN: %-30s | MAC: %-30s\n",
+                sqlite3_column_text(stmt3,0),
+                sqlite3_column_text(stmt3,1),
+                sqlite3_column_text(stmt3,2));
         send(client_fd, message, strlen(message), 0);
     }
-    free(pLine);
+
+    send(client_fd, "NULL", 5, 0);
+    sqlite3_finalize(stmt3);
+    sqlite3_close(DB);
 }
 
 void Client_Command()
@@ -222,7 +300,7 @@ void Client_Command()
     Shell_Command[strcspn(Shell_Command, "\n")] = '\0';
 
     if (strncmp(Shell_Command, "shell", 5) == 0) {
-        char Formated_Command[BUFF_SIZE * 2];
+        char Formatted_Command[BUFF_SIZE * 2];
         char buffer[BUFF_SIZE];
 
         memset(buffer, 0, BUFF_SIZE);
@@ -230,25 +308,25 @@ void Client_Command()
         char* pcmd = Shell_Command + 6;
         pcmd[strcspn(pcmd, "\n")] = '\0';
 
-        History[(*history_baund)].pid =  getpid();
-        strcpy(History[(*history_baund)].command,pcmd);
+        History[(*history_bound)].pid =  getpid();
+        strcpy(History[(*history_bound)].command,pcmd);
 
-        snprintf(Formated_Command, sizeof(Formated_Command), "%s 2>&1", pcmd);
-        Add_Processe(getpid(), pcmd);
+        snprintf(Formatted_Command, sizeof(Formatted_Command), "%s 2>&1", pcmd);
+        Add_Process(getpid(), pcmd);
 
         FILE* pf;
-        pf = popen(Formated_Command, "r");       
+        pf = popen(Formatted_Command, "r");       
         while(fgets(buffer, sizeof(buffer), pf) != NULL) {
 
             send(client_fd, buffer, strlen(buffer), 0);
             buffer[strcspn(buffer, "\n")] = ';';
 
-            strcat(History[(*history_baund)].result,buffer);
+            strcat(History[(*history_bound)].result,buffer);
             memset(buffer, 0, BUFF_SIZE);
         }
 
-        (*history_baund) ++;
-        (*history_baund) %= MAX_HISTORY;
+        (*history_bound) ++;
+        (*history_bound) %= MAX_HISTORY;
 
         strcpy(buffer, "NULL");
         send(client_fd, buffer, strlen(buffer), 0);
@@ -257,18 +335,21 @@ void Client_Command()
         Remove_Processe(getpid());
     } else if (strcmp(Shell_Command, "disconnect") == 0) {
 
-        History[(*history_baund)].pid =  getpid();
-        strcpy(History[(*history_baund)].command,Shell_Command);
+        History[(*history_bound)].pid =  getpid();
+        strcpy(History[(*history_bound)].command,Shell_Command);
         Remove_Client(client_fd);
         
-        (*history_baund) ++ ;
-        (*history_baund) %= MAX_HISTORY;
+        (*history_bound) ++ ;
+        (*history_bound) %= MAX_HISTORY;
 
         close(client_fd);
         exit(0);
-    } else if (strcmp(Shell_Command, "gmac") == 0) {
+    } else if (strncmp(Shell_Command, "gmac", 4) == 0) {
         unsigned char* S_N  = Shell_Command + 5;
         MAC_Generator(S_N);
+    } else if (strncmp(Shell_Command, "showmac", 7) == 0) {
+        unsigned char* Client_IP  = Shell_Command + 5;
+        Client_Devices(Client_IP);
     }
 }
 
@@ -281,7 +362,7 @@ void Server_CLI()
         strncpy(Server_Command, input, BUFF_SIZE - 1);
        
         int No_Alpha = 0;
-        while (No_Alpha < strlen(Server_Command) && isalpha(Server_Command[No_Alpha]) == 0) 
+        while (No_Alpha < strlen(Server_Command) && isalnum(Server_Command[No_Alpha]) == 0) 
             No_Alpha++;
 
         for (int i = 0; i < BUFF_SIZE - No_Alpha; i++)
@@ -321,14 +402,16 @@ void Server_CLI()
 
 void Add_Client(int new_client)
 {
-    struct sockaddr_in add;
-    History[(*history_baund)].pid =  getpid();
-    strcpy(History[(*history_baund)].command, "Connect");
-    strcpy(History[(*history_baund)].result, "Rejected");
+    
+    History[(*history_bound)].pid =  getpid();
+    strcpy(History[(*history_bound)].command, "Connect");
+    strcpy(History[(*history_bound)].result, "Rejected");
 
+    struct sockaddr_in add;
     int res = getpeername(new_client, (struct sockaddr *)&add, &add_size);
     char ip[INET_ADDRSTRLEN];
     inet_ntop(AF_INET, &add.sin_addr, ip, INET_ADDRSTRLEN);
+    strcpy(cli_ip,ip);
     for (int i = 0; i < CLIENTS_COUNT; i++) {
         if (Clients[i].socket == 0) {
             (*C_Count)++;
@@ -338,15 +421,15 @@ void Add_Client(int new_client)
             strncpy(Clients[i].time, ctime(&Ctime), sizeof(Clients[i].time));
             Clients[i].port = ntohs(add.sin_port);
             Clients[i].pid = getpid();
-            strcpy(Clients[i].ip, IP);
-            strcpy(History[(*history_baund)].result, "Connected");
+            strcpy(Clients[i].ip, ip);
+            strcpy(History[(*history_bound)].result, "Connected");
             if (*Listen == 1)
                 printf("\nClient connected. Port: %u IP: %s\n", ntohs(add.sin_port), ip);
             break;
         }
     }
-    (*history_baund)++;
-    (*history_baund) %= MAX_HISTORY;
+    (*history_bound)++;
+    (*history_bound) %= MAX_HISTORY;
 }
 
 void handle(int sig)
@@ -380,8 +463,8 @@ int main(int argc, char* argv[])
     History = mmap(NULL, sizeof(S_History) * MAX_HISTORY, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
     memset(History, 0, sizeof(S_History) * MAX_HISTORY);
 
-    history_baund = mmap(NULL, sizeof(int), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
-    memset(history_baund, 0, sizeof(int));
+    history_bound = mmap(NULL, sizeof(int), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+    memset(history_bound, 0, sizeof(int));
 
     Listen = mmap(NULL, sizeof(int), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
     memset(Listen, 0, sizeof(int));
@@ -398,12 +481,12 @@ int main(int argc, char* argv[])
     if (argc > 1) {
         IP = argv[1];
         while (!inet_pton(AF_INET, IP, &(address.sin_addr))) {
-            printf("Invalid IP address try again \n");
+            printf("Invalid IP address. Try again \n");
             IP = (char*) malloc(30 * sizeof(char));
             scanf("%28s", IP);
         }
     } else {
-        IP = "0.0.0.0";
+        IP = "127.0.0.1";
     }
     pid_t pid = fork();
 
@@ -426,7 +509,8 @@ int main(int argc, char* argv[])
         }
 
         /*Adding server config*/
-        setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR | SO_REUSEPORT, &opt, sizeof(opt));
+        setsockopt(server_fd, SOL_SOCKET, SO_REUSEPORT, &opt, sizeof(opt));
+        setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
 
         address.sin_family = AF_INET;
         address.sin_addr.s_addr = inet_addr(IP);
@@ -459,9 +543,8 @@ int main(int argc, char* argv[])
             pid_t new_pid = fork();
 
             if (new_pid == 0) {
-
-                Add_Client(client_fd);
                 setpgid(0, pgid);
+                Add_Client(client_fd);
                 close(server_fd);
 
                 while (1) {
@@ -472,6 +555,7 @@ int main(int argc, char* argv[])
 
             } else if (new_pid > 0) {
                 setpgid(new_pid, pgid);
+                close(client_fd);
                 continue;
 
             } else {
