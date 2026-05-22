@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MAC Address Provisioning Portal</title>
+    <script src="[https://cdn.tailwindcss.com](https://cdn.tailwindcss.com)"></script>
+    <style>
+        .glow-effect:focus-within {
+            box-shadow: 0 0 20px 2px rgba(99, 102, 241, 0.15);
+        }
+    </style>
+</head>
+<body class="bg-[#0f172a] text-slate-100 min-h-screen font-sans antialiased selection:bg-indigo-500 selection:text-white">
+
+    <header class="border-b border-slate-800/80 bg-slate-900/40 backdrop-blur-md sticky top-0 z-50 px-6 py-4 flex justify-between items-center">
+        <div class="flex items-center gap-3">
+            <div class="bg-gradient-to-tr from-indigo-600 to-violet-500 p-2 rounded-xl shadow-lg shadow-indigo-500/20">
+                <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                </svg>
+            </div>
+            <div>
+                <h1 class="text-lg font-bold tracking-tight bg-gradient-to-r from-indigo-400 to-violet-400 bg-clip-text text-transparent">MAC Provisioning System</h1>
+                <p class="text-xs text-slate-400 font-medium">Enterprise Hardware Layer</p>
+            </div>
+        </div>
+        <div class="flex items-center gap-2.5 bg-slate-900 border border-slate-800 px-4 py-2 rounded-xl shadow-inner">
+            <span class="w-2.5 h-2.5 bg-emerald-500 rounded-full animate-pulse shadow-glow"></span>
+            <span class="text-xs text-slate-300 font-semibold uppercase tracking-wider">Engine Online</span>
+        </div>
+    </header>
+
+    <main class="max-w-6xl mx-auto p-6 space-y-6">
+        <section class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div class="bg-slate-900/50 border border-slate-800 rounded-2xl p-4 flex items-center gap-4 shadow-md">
+                <div class="p-3 bg-indigo-500/10 text-indigo-400 rounded-xl">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 5h10a2 2 0 012 2v10a2 2 0 01-2 2H7a2 2 0 01-2-2V7a2 2 0 012-2z"/></svg>
+                </div>
+                <div>
+                    <p class="text-xs font-semibold uppercase tracking-wider text-slate-400">System Mode</p>
+                    <p class="text-sm font-bold text-slate-200">High-Speed Scanner</p>
+                </div>
+            </div>
+            <div class="bg-slate-900/50 border border-slate-800 rounded-2xl p-4 flex items-center gap-4 shadow-md">
+                <div class="p-3 bg-violet-500/10 text-violet-400 rounded-xl">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.58 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.58 4 8 4s8-1.79 8-4M4 7c0-2.21 3.58-4 8-4s8 1.79 8 4m0 5c0 2.21-3.58 4-8 4s-8-1.79-8-4"/></svg>
+                </div>
+                <div>
+                    <p class="text-xs font-semibold uppercase tracking-wider text-slate-400">Database Core</p>
+                    <p class="text-sm font-bold text-slate-200">SQLite3 Independent</p>
+                </div>
+            </div>
+            <div class="bg-slate-900/50 border border-slate-800 rounded-2xl p-4 flex items-center gap-4 shadow-md">
+                <div class="p-3 bg-emerald-500/10 text-emerald-400 rounded-xl">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+                </div>
+                <div>
+                    <p class="text-xs font-semibold uppercase tracking-wider text-slate-400">Network Tunnel</p>
+                    <p class="text-sm font-bold text-slate-200">Nginx Secure Proxy</p>
+                </div>
+            </div>
+        </section>
+        
+        <section class="bg-slate-900/30 border border-slate-800/80 rounded-2xl p-6 shadow-xl relative overflow-hidden backdrop-blur-sm">
+            <div class="absolute top-0 right-0 w-64 h-64 bg-indigo-500/5 rounded-full blur-3xl pointer-events-none"></div>
+            <div class="flex items-center gap-2 mb-2">
+                <svg class="w-5 h-5 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"/></svg>
+                <h2 class="text-base font-bold text-slate-200">Provision Hardware Node</h2>
+            </div>
+            <p class="text-xs text-slate-400 mb-6 leading-relaxed">The system interface is optimized for rapid hardware deployment loops. Your flashing input cursor automatically retains focal lock following data transfers.</p>
+            
+            <form onsubmit="event.preventDefault(); generateMac();" class="flex flex-col sm:flex-row gap-3 glow-effect">
+                <div class="relative flex-1">
+                    <input type="text" id="serialInput" placeholder="Scan barcode gun or input device serial key..." autofocus
+                           class="w-full bg-[#090d16] border border-slate-800 rounded-xl pl-4 pr-12 py-3.5 text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:border-indigo-500/80 focus:ring-1 focus:ring-indigo-500/30 transition duration-150">
+                    <div class="absolute right-4 top-4 text-slate-600 pointer-events-none">
+                        <kbd class="bg-slate-900 border border-slate-800 text-[10px] font-bold px-1.5 py-0.5 rounded shadow">ENTER</kbd>
+                    </div>
+                </div>
+                <button type="submit" 
+                        class="bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold px-6 py-3.5 rounded-xl shadow-lg shadow-indigo-600/10 active:scale-[0.98] transition duration-150 flex items-center justify-center gap-2">
+                    <span>Provision Node</span>
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+                </button>
+            </form>
+            <div id="alertBox" class="mt-4 hidden p-4 rounded-xl text-xs font-semibold tracking-wide shadow-inner border animate-fadeIn"></div>
+        </section>
+
+        <section class="bg-slate-900/30 border border-slate-800/80 rounded-2xl shadow-xl overflow-hidden backdrop-blur-sm">
+            <div class="p-5 border-b border-slate-800/80 flex justify-between items-center bg-slate-900/20">
+                <div class="flex items-center gap-2">
+                    <svg class="w-5 h-5 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"/></svg>
+                    <h2 class="text-base font-bold text-slate-200">Authorized Active Registry</h2>
+                </div>
+                <button onclick="loadDevices()" class="text-xs font-bold text-slate-400 hover:text-slate-200 border border-slate-800 hover:border-slate-700 bg-slate-900/60 px-4 py-2 rounded-xl transition duration-150 flex items-center gap-2 shadow-sm">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 1121.253 8H18"/></svg>
+                    <span>Refresh Registry</span>
+                </button>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse">
+                    <thead>
+                        <tr class="bg-slate-900/60 text-slate-400 text-[11px] font-bold uppercase tracking-wider border-b border-slate-800/80">
+                            <th class="px-6 py-4">Client Endpoint IP</th>
+                            <th class="px-6 py-4">Hardware Serial Identifier</th>
+                            <th class="px-6 py-4">Assigned Unicast MAC Address</th>
+                        </tr>
+                    </thead>
+                    <tbody id="deviceTableBody" class="divide-y divide-slate-800/60 text-xs"></tbody>
+                </table>
+            </div>
+        </section>
+    </main>
+
+    <script>
+        async function loadDevices() {
+            const tbody = document.getElementById('deviceTableBody');
+            tbody.innerHTML = `<tr><td colspan="3" class="px-6 py-12 text-center text-slate-500 font-medium animate-pulse">Querying server cluster logs...</td></tr>`;
+            try {
+                const response = await fetch('/showmac');
+                const text = await response.text();
+                const lines = text.split('\n').filter(line => line.trim());
+                tbody.innerHTML = '';
+                if (lines.length === 0) {
+                    tbody.innerHTML = `<tr><td colspan="3" class="px-6 py-10 text-center text-slate-500 font-medium">No registrations found.</td></tr>`;
+                    return;
+                }
+                lines.forEach(line => {
+                    const match = line.match(/IP:\s*([^\s\|]+).*SN:\s*([^\s\|]+).*MAC:\s*([^\s\|]+)/);
+                    if (match) {
+                        tbody.innerHTML += `
+                            <tr class="hover:bg-slate-800/20 transition duration-100 group">
+                                <td class="px-6 py-4 font-mono font-bold text-indigo-400/90 tracking-wide">${match[1]}</td>
+                                <td class="px-6 py-4 text-slate-300 font-medium tracking-wide">${match[2]}</td>
+                                <td class="px-6 py-4 font-mono text-emerald-400 font-bold bg-slate-900/20 group-hover:bg-slate-900/40 tracking-wider transition duration-100">${match[3]}</td>
+                            </tr>`;
+                    }
+                });
+            } catch (err) {
+                tbody.innerHTML = `<tr><td colspan="3" class="px-6 py-10 text-center text-rose-400 font-bold">CRITICAL: Network failure with gateway.</td></tr>`;
+            }
+        }
+
+        async function generateMac() {
+            const inputField = document.getElementById('serialInput');
+            const sn = inputField.value.trim();
+            const alertBox = document.getElementById('alertBox');
+            if (!sn) return;
+            try {
+                const response = await fetch(`/gmac?sn=${encodeURIComponent(sn)}`);
+                const result = await response.text();
+                if (response.ok && !result.toLowerCase().includes('error') && !result.toLowerCase().includes('already')) {
+                    alertBox.className = "mt-4 p-4 rounded-xl text-xs font-semibold bg-emerald-950/40 border border-emerald-500/20 text-emerald-300 flex items-center gap-2";
+                    alertBox.innerHTML = `<span>${result}</span>`;
+                } else {
+                    alertBox.className = "mt-4 p-4 rounded-xl text-xs font-semibold bg-amber-950/40 border border-amber-500/20 text-amber-300 flex items-center gap-2";
+                    alertBox.innerHTML = `<span>${result}</span>`;
+                }
+                alertBox.classList.remove('hidden');
+                inputField.value = '';
+                inputField.focus();
+                loadDevices();
+            } catch (err) {
+                alertBox.className = "mt-4 p-4 rounded-xl text-xs font-semibold bg-rose-950/40 border border-rose-500/20 text-rose-300";
+                alertBox.innerText = "CRITICAL FAILURE: Pipeline transfer broke down.";
+                alertBox.classList.remove('hidden');
+                inputField.focus();
+            }
+        }
+        window.onload = loadDevices;
+    </script>
+</body>
+</html>
