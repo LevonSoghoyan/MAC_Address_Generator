@@ -15,8 +15,8 @@
 #define PORT 55555
 #define BUFF_SIZE 2048
 
-#define PROMPT "Client> "
-#define SPROMPT "Scanner> "
+#define PROMPT "Client CLI> "
+#define SPROMPT "Scanner CLI> "
 /*Global variables*/
 char buf[BUFF_SIZE];
 int client_fd = -1;

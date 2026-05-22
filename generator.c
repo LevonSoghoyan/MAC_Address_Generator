@@ -25,7 +25,7 @@
 #define MAX_HISTORY   100
 #define DATA "Mac.db"
 #define DATABASE "txt.txt"
-#define PROMPT "Server> "
+#define PROMPT "Generator CLI> "
 
 /*Global variables*/
 char Shell_Command[BUFF_SIZE];
