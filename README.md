@@ -1,6 +1,5 @@
-=============================================================================
-         PROJECT: BARCODE SCANNER & MAC ADDRESS GENERATOR SYSTEM
-=============================================================================
+
+         PROJECT: BARCODE SCANNER & MAC ADDRESS GENERATOR SYSTEM      
 
 1. PROJECT OVERVIEW
 -----------------------------------------------------------------------------
@@ -9,6 +8,7 @@ registration. The architecture connects distributed barcode scanner clients to a
 central generator engine via robust TCP network sockets.
 
 Core Logic Flow:
+
 - Scanner (Client) captures or reads a device hardware Serial Number.
 - The Serial Number is transmitted directly over the network to the Generator.
 - Generator (Server) inspects a local storage engine (Mac.db) for the key.
@@ -17,8 +17,10 @@ Core Logic Flow:
   re-formats the hash into a valid IEEE 802 standard MAC address, updates the
   Mac.db storage tables, and returns the newly registered profile to the node.
 
+
 2. SYSTEM COMPONENTS & FILES
 -----------------------------------------------------------------------------
+
 - generator.c    : Server application managing socket listeners, SQLite database 
                    connections, hashing mechanics, and administrative shells.
 - scanner.c      : Client application modeling hardware interfaces, CLI consoles, 
@@ -27,6 +29,7 @@ Core Logic Flow:
 
 3. COMPILATION
 -----------------------------------------------------------------------------
+
 Use the explicit make targets below inside your workspace terminal:
 
 - To compile the Generator:
@@ -66,23 +69,36 @@ exit                Terminate and quit the local application loop.
   on boot. If the database file is missing, the engine creates it seamlessly 
   and initializes internal index schema.
 - Data tracked: [Device Serial Number] | [Calculated MAC] | [Scanner Node IP]
-
-7. STEP-BY-STEP QUICK START WORKFLOW
 -----------------------------------------------------------------------------
+7. STEP-BY-STEP QUICK START WORKFLOW
+
 Step 1: Build components
+
         $ make generator 
+        
         $ make scanner
+        
 
 Step 2: Fire up the Generator engine node:
+
         $ ./GENERATOR 127.0.0.1
+        
         Generator CLI > up
+        
 
 Step 3: Access Scanner console from terminal instance B:
+
         $ ./SCANNER
+        
         Client CLI > connect 127.0.0.1
+        
 
 Step 4: Execute Scanner operations:
+
         Scanner Console > gmac
+        
         Scaner CLI > 2134-123
+        
         Registered Device. IP: 10.101.0.6                     | SN: 2134-123                       | MAC: 46:F0:82:9A:5F:6B
-=============================================================================
+        
+-----------------------------------------------------------------------------
