@@ -71,7 +71,7 @@ void Extract_Real_IP(const char* request, char* output_ip) {
     }
 }
 
-// Sequential MAC generator with duplicate SN+PN look-up protection
+// Sequential MAC generator with duplicate look-up protection
 void MAC_Generator_Web(int sock, const char* S_N, const char* P_N, int count, const char* remote_ip) {
     sqlite3* DB;
     if (sqlite3_open(DATA, &DB) != SQLITE_OK) {
@@ -80,7 +80,7 @@ void MAC_Generator_Web(int sock, const char* S_N, const char* P_N, int count, co
         return;
     }
 
-    char message[BUFF_SIZE * 4] = "";
+    char message[BUFF_SIZE * 10] = "";
     char line_msg[512];
     int found_existing = 0;
 
@@ -93,7 +93,7 @@ void MAC_Generator_Web(int sock, const char* S_N, const char* P_N, int count, co
         while (sqlite3_step(stmt_find) == SQLITE_ROW) {
             found_existing = 1;
             const char* existing_mac = (const char*)sqlite3_column_text(stmt_find, 0);
-            snprintf(line_msg, sizeof(line_msg), "Already Registered: SN: %s | PN: %s | MAC: %s\n", S_N, P_N, existing_mac);
+            snprintf(line_msg, sizeof(line_msg), "IP: %s | PN: %s | SN: %s | MAC: %s\n", remote_ip, P_N, S_N, existing_mac);
             strcat(message, line_msg);
         }
         sqlite3_finalize(stmt_find);
@@ -136,7 +136,7 @@ void MAC_Generator_Web(int sock, const char* S_N, const char* P_N, int count, co
                 sqlite3_finalize(stmt_ins);
             }
 
-            snprintf(line_msg, sizeof(line_msg), "Success: Assigned MAC %s to SN %s, PN %s\n", mac_str, S_N, P_N);
+            snprintf(line_msg, sizeof(line_msg), "IP: %s | PN: %s | SN: %s | MAC: %s\n", remote_ip, P_N, S_N, mac_str);
             strcat(message, line_msg);
             current_counter++;
         }
@@ -152,7 +152,7 @@ void MAC_Generator_Web(int sock, const char* S_N, const char* P_N, int count, co
         }
     }
 
-    char http_response[BUFF_SIZE * 5];
+    char http_response[BUFF_SIZE * 12];
     snprintf(http_response, sizeof(http_response),
              "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: %zu\r\nConnection: close\r\n\r\n%s",
              strlen(message), message);
@@ -160,8 +160,8 @@ void MAC_Generator_Web(int sock, const char* S_N, const char* P_N, int count, co
     sqlite3_close(DB);
 }
 
-// Safely archives matching node blocks down to Used_Mac.db and provisions updates
-void Force_Generating(int sock, const char* S_N, const char* P_N, const char* remote_ip) {
+// Archives existing allocations to Used_Mac.db and generates using the NEW target count value
+void Force_Generating(int sock, const char* S_N, const char* P_N, int new_count, const char* remote_ip) {
     sqlite3* DB;
     if (sqlite3_open(DATA, &DB) != SQLITE_OK) {
         char* err = "HTTP/1.1 500 Error\r\nContent-Type: text/plain\r\nConnection: close\r\n\r\nDB Failure.";
@@ -177,28 +177,6 @@ void Force_Generating(int sock, const char* S_N, const char* P_N, const char* re
         return;
     }
 
-    int row_count = 0;
-    sqlite3_stmt *stmt_count;
-    char *sql_count = "SELECT COUNT(*) FROM MAC WHERE SERIAL_NUMBER = ? AND PART_NUMBER = ? AND IP != '0';";
-    if (sqlite3_prepare_v2(DB, sql_count, -1, &stmt_count, NULL) == SQLITE_OK) {
-        sqlite3_bind_text(stmt_count, 1, S_N, -1, SQLITE_TRANSIENT);
-        sqlite3_bind_text(stmt_count, 2, P_N, -1, SQLITE_TRANSIENT);
-
-        if (sqlite3_step(stmt_count) == SQLITE_ROW) {
-            row_count = sqlite3_column_int(stmt_count, 0);
-        }
-        sqlite3_finalize(stmt_count);
-    }
-
-    if (row_count == 0) {
-        char* no_data_msg = "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nConnection: close\r\n\r\nError: No previous allocations exist to overwrite for this device signature.\n";
-        send(sock, no_data_msg, strlen(no_data_msg), 0);
-        sqlite3_close(USED);
-        sqlite3_close(DB);
-        return;
-    }
-
-    // Move data seamlessly between tracking databases using target parameter statements
     sqlite3_stmt *stmt_sel;
     char *sql_sel = "SELECT IP, SERIAL_NUMBER, PART_NUMBER, MAC_ADDRESS FROM MAC WHERE SERIAL_NUMBER = ? AND PART_NUMBER = ? AND IP != '0';";
     if (sqlite3_prepare_v2(DB, sql_sel, -1, &stmt_sel, NULL) == SQLITE_OK) {
@@ -221,7 +199,6 @@ void Force_Generating(int sock, const char* S_N, const char* P_N, const char* re
     }
     sqlite3_close(USED);
 
-    // Wipe matching active nodes out securely
     sqlite3_stmt *stmt_del;
     char *sql_del = "DELETE FROM MAC WHERE SERIAL_NUMBER = ? AND PART_NUMBER = ? AND IP != '0';";
     if (sqlite3_prepare_v2(DB, sql_del, -1, &stmt_del, NULL) == SQLITE_OK) {
@@ -232,16 +209,15 @@ void Force_Generating(int sock, const char* S_N, const char* P_N, const char* re
     }
     sqlite3_close(DB);
 
-    // Provision a clean set of sequential addresses matching original footprint allocation size
-    MAC_Generator_Web(sock, S_N, P_N, row_count, remote_ip);
+    MAC_Generator_Web(sock, S_N, P_N, new_count, remote_ip);
 }
 
-// Dump non-tracker rows to the active layout table grid
-void Client_Devices_Web(int sock) {
+// Dump workstation data tables with explicit cast-safety
+void Client_Devices_Web(int sock, const char* ip) {
     sqlite3* DB;
     char row[256];
-    char body[BUFF_SIZE * 6] = "";
-    char http_response[BUFF_SIZE * 7] = "";
+    char body[BUFF_SIZE * 10] = "";
+    char http_response[BUFF_SIZE * 12] = "";
     sqlite3_stmt *stmt;
 
     if (sqlite3_open(DATA, &DB) != SQLITE_OK) {
@@ -250,11 +226,15 @@ void Client_Devices_Web(int sock) {
         return;
     }
 
-    char *sql_select = "SELECT IP, SERIAL_NUMBER, PART_NUMBER, MAC_ADDRESS FROM MAC WHERE IP != '0' AND SERIAL_NUMBER != '0' ORDER BY ROWID DESC;";
+    char *sql_select = "SELECT IP, SERIAL_NUMBER, PART_NUMBER, MAC_ADDRESS FROM MAC WHERE IP == ? AND SERIAL_NUMBER != '0' ORDER BY ROWID DESC;";
     if (sqlite3_prepare_v2(DB, sql_select, -1, &stmt, NULL) == SQLITE_OK) {
+        sqlite3_bind_text(stmt, 1, ip, -1, SQLITE_TRANSIENT);
         while (sqlite3_step(stmt) == SQLITE_ROW) {
-            snprintf(row, sizeof(row), "IP: %s | SN: %s | PN: %s | MAC: %s\n",
-                     sqlite3_column_text(stmt, 0), sqlite3_column_text(stmt, 1), sqlite3_column_text(stmt, 2), sqlite3_column_text(stmt, 3));
+            snprintf(row, sizeof(row), "IP: %s | PN: %s | SN: %s | MAC: %s\n",
+                     (const char*)sqlite3_column_text(stmt, 0),
+                     (const char*)sqlite3_column_text(stmt, 2),
+                     (const char*)sqlite3_column_text(stmt, 1),
+                     (const char*)sqlite3_column_text(stmt, 3));
             strcat(body, row);
         }
         sqlite3_finalize(stmt);
@@ -267,12 +247,90 @@ void Client_Devices_Web(int sock) {
     sqlite3_close(DB);
 }
 
-// Fetch historical archived log footprints out of Used_Mac.db
+// Dynamic parameter lookup tool tracking active database matches strictly
+void find_device_active(int sock, const char* S_N, const char* P_N) {
+    sqlite3* DB;
+    char row[256];
+    char body[BUFF_SIZE * 10] = "";
+    char http_response[BUFF_SIZE * 12] = "";
+    sqlite3_stmt *stmt;
+
+    if (sqlite3_open(DATA, &DB) != SQLITE_OK) {
+        char* err = "HTTP/1.1 500 Error\r\nContent-Type: text/plain\r\nConnection: close\r\n\r\nDB Failure.";
+        send(sock, err, strlen(err), 0);
+        return;
+    }
+
+    char *sql_select = "SELECT IP, SERIAL_NUMBER, PART_NUMBER, MAC_ADDRESS FROM MAC "
+                       "WHERE IP != '0' AND (?1 = '' OR SERIAL_NUMBER = ?1) AND (?2 = '' OR PART_NUMBER = ?2) ORDER BY ROWID DESC;";
+
+    if (sqlite3_prepare_v2(DB, sql_select, -1, &stmt, NULL) == SQLITE_OK) {
+        sqlite3_bind_text(stmt, 1, S_N, -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(stmt, 2, P_N, -1, SQLITE_TRANSIENT);
+
+        while (sqlite3_step(stmt) == SQLITE_ROW) {
+            snprintf(row, sizeof(row), "IP: %s | PN: %s | SN: %s | MAC: %s\n",
+                     (const char*)sqlite3_column_text(stmt, 0),
+                     (const char*)sqlite3_column_text(stmt, 2),
+                     (const char*)sqlite3_column_text(stmt, 1),
+                     (const char*)sqlite3_column_text(stmt, 3));
+            strcat(body, row);
+        }
+        sqlite3_finalize(stmt);
+    }
+    sqlite3_close(DB);
+
+    snprintf(http_response, sizeof(http_response),
+             "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: %zu\r\nConnection: close\r\n\r\n%s",
+             strlen(body), body);
+    send(sock, http_response, strlen(http_response), 0);
+}
+
+// Dynamic parameter lookup tool tracking archived log partition matches strictly
+void find_device_used(int sock, const char* S_N, const char* P_N) {
+    sqlite3* USED;
+    char row[256];
+    char body[BUFF_SIZE * 10] = "";
+    char http_response[BUFF_SIZE * 12] = "";
+    sqlite3_stmt *stmt;
+
+    if (sqlite3_open(USED_MAC_ADDRESSES, &USED) != SQLITE_OK) {
+        char* err = "HTTP/1.1 500 Error\r\nContent-Type: text/plain\r\nConnection: close\r\n\r\nUSED DB Failure.";
+        send(sock, err, strlen(err), 0);
+        return;
+    }
+
+    char *sql_select = "SELECT IP, SERIAL_NUMBER, PART_NUMBER, MAC_ADDRESS FROM USED "
+                       "WHERE (?1 = '' OR SERIAL_NUMBER = ?1) AND (?2 = '' OR PART_NUMBER = ?2) ORDER BY ROWID DESC;";
+
+    if (sqlite3_prepare_v2(USED, sql_select, -1, &stmt, NULL) == SQLITE_OK) {
+        sqlite3_bind_text(stmt, 1, S_N, -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(stmt, 2, P_N, -1, SQLITE_TRANSIENT);
+
+        while (sqlite3_step(stmt) == SQLITE_ROW) {
+            snprintf(row, sizeof(row), "IP: %s | PN: %s | SN: %s | MAC: %s\n",
+                     (const char*)sqlite3_column_text(stmt, 0),
+                     (const char*)sqlite3_column_text(stmt, 2),
+                     (const char*)sqlite3_column_text(stmt, 1),
+                     (const char*)sqlite3_column_text(stmt, 3));
+            strcat(body, row);
+        }
+        sqlite3_finalize(stmt);
+    }
+    sqlite3_close(USED);
+
+    snprintf(http_response, sizeof(http_response),
+             "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: %zu\r\nConnection: close\r\n\r\n%s",
+             strlen(body), body);
+    send(sock, http_response, strlen(http_response), 0);
+}
+
+// Dump historical archived partitions out of Used_Mac.db
 void Client_used_MAC(int sock) {
     sqlite3* USED;
     char row[256];
-    char body[BUFF_SIZE * 6] = "";
-    char http_response[BUFF_SIZE * 7] = "";
+    char body[BUFF_SIZE * 10] = "";
+    char http_response[BUFF_SIZE * 12] = "";
     sqlite3_stmt *stmt;
 
     if (sqlite3_open(USED_MAC_ADDRESSES, &USED) != SQLITE_OK) {
@@ -281,12 +339,14 @@ void Client_used_MAC(int sock) {
         return;
     }
 
-    // FIXED: Target reading source map shifted to query the USED table layout frame
     char *sql_select = "SELECT IP, SERIAL_NUMBER, PART_NUMBER, MAC_ADDRESS FROM USED ORDER BY ROWID DESC;";
     if (sqlite3_prepare_v2(USED, sql_select, -1, &stmt, NULL) == SQLITE_OK) {
         while (sqlite3_step(stmt) == SQLITE_ROW) {
-            snprintf(row, sizeof(row), "IP: %s | SN: %s | PN: %s | MAC: %s\n",
-                     sqlite3_column_text(stmt, 0), sqlite3_column_text(stmt, 1), sqlite3_column_text(stmt, 2), sqlite3_column_text(stmt, 3));
+            snprintf(row, sizeof(row), "IP: %s | PN: %s | SN: %s | MAC: %s\n",
+                     (const char*)sqlite3_column_text(stmt, 0),
+                     (const char*)sqlite3_column_text(stmt, 2),
+                     (const char*)sqlite3_column_text(stmt, 1),
+                     (const char*)sqlite3_column_text(stmt, 3));
             strcat(body, row);
         }
         sqlite3_finalize(stmt);
@@ -328,7 +388,6 @@ int main() {
         exit(EXIT_FAILURE);
     }
 
-    printf("🚀 Pure Web Provisioning Service Live on port %d...\n", PORT);
 
     while (1) {
         client_fd = accept(server_fd, (struct sockaddr*)&address, &addr_size);
@@ -381,24 +440,50 @@ int main() {
                     }
                     count_str[idx] = '\0';
                     count_val = atoi(count_str);
-                    if (count_val < 1) count_val = 1;
                 }
 
-                if (strncmp(buffer, "GET /gmac", 9) == 0) {
-                    if (strlen(extracted_sn) > 0) {
+                // CRITICAL CAPACITY BOUNDARY REJECTION INTERCEPTOR
+                if (count_val > 50 || count_val < 1) {
+                    char* validation_err = "HTTP/1.1 400 Bad Request\r\nContent-Type: text/plain\r\nConnection: close\r\n\r\nError: Requested count bounds exceeded. Maximum allocation per individual pipeline transaction is capped at 50 to maintain database stability.\n";
+                    send(client_fd, validation_err, strlen(validation_err), 0);
+                }
+                else if (strncmp(buffer, "GET /gmac", 9) == 0) {
+                    if (strlen(extracted_sn) == 0 || strlen(extracted_pn) == 0) {
+                        char* validation_err = "HTTP/1.1 400 Bad Request\r\nContent-Type: text/plain\r\nConnection: close\r\n\r\nError: Both Serial Number (SN) and Part Number (PN) are strictly required parameters.\n";
+                        send(client_fd, validation_err, strlen(validation_err), 0);
+                    } else {
                         MAC_Generator_Web(client_fd, extracted_sn, extracted_pn, count_val, web_client_ip);
                     }
                 }
                 else if (strncmp(buffer, "GET /force_gen", 14) == 0) {
-                    if (strlen(extracted_sn) > 0) {
-                        Force_Generating(client_fd, extracted_sn, extracted_pn, web_client_ip);
+                    if (strlen(extracted_sn) == 0 || strlen(extracted_pn) == 0) {
+                        char* validation_err = "HTTP/1.1 400 Bad Request\r\nContent-Type: text/plain\r\nConnection: close\r\n\r\nError: Both input metrics are required to execute overwrite tasks.\n";
+                        send(client_fd, validation_err, strlen(validation_err), 0);
+                    } else {
+                        Force_Generating(client_fd, extracted_sn, extracted_pn, count_val, web_client_ip);
                     }
                 }
                 else if (strncmp(buffer, "GET /showmac", 12) == 0) {
-                    Client_Devices_Web(client_fd);
+                    Client_Devices_Web(client_fd, web_client_ip);
                 }
                 else if (strncmp(buffer, "GET /usedmac", 12) == 0) {
                     Client_used_MAC(client_fd);
+                }
+                else if (strncmp(buffer, "GET /find_active", 16) == 0) {
+                    if (strlen(extracted_sn) == 0 && strlen(extracted_pn) == 0) {
+                        char* validation_err = "HTTP/1.1 400 Bad Request\r\nContent-Type: text/plain\r\nConnection: close\r\n\r\nError: Search criteria missing.\n";
+                        send(client_fd, validation_err, strlen(validation_err), 0);
+                    } else {
+                        find_device_active(client_fd, extracted_sn, extracted_pn);
+                    }
+                }
+                else if (strncmp(buffer, "GET /find_used", 14) == 0) {
+                    if (strlen(extracted_sn) == 0 && strlen(extracted_pn) == 0) {
+                        char* validation_err = "HTTP/1.1 400 Bad Request\r\nContent-Type: text/plain\r\nConnection: close\r\n\r\nError: Search criteria missing.\n";
+                        send(client_fd, validation_err, strlen(validation_err), 0);
+                    } else {
+                        find_device_used(client_fd, extracted_sn, extracted_pn);
+                    }
                 }
             }
             close(client_fd);
