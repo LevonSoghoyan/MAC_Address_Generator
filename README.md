@@ -136,23 +136,19 @@ $ sudo nano /etc/nginx/sites-available/default
 Wipe old placeholder entries completely and paste this proxy architecture map:
 
 
-# 1. HTTP Server - Redirects all unencrypted traffic to HTTPS automatically
 server {
     listen 80;
     server_name 10.101.0.6;
     return 301 https://$host$request_uri;
 }
 
-# 2. HTTPS Server - Securely handles web traffic and proxies to your C code
 server {
         listen 443 ssl;
         server_name 10.101.0.6;
 
-# Link your generated SSL keys
         ssl_certificate /etc/ssl/certs/nginx-selfsigned.crt;
         ssl_certificate_key /etc/ssl/private/nginx-selfsigned.key;
 
-# Secure modern TLS protocols
         ssl_protocols TLSv1.2 TLSv1.3;
         ssl_ciphers HIGH:!aNULL:!MD5;
 
