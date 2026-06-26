@@ -12,8 +12,8 @@
 
 #define PORT 55555
 #define BUFF_SIZE 2048
-#define DATA "Mac.db"
-#define USED_MAC_ADDRESSES "Used_Mac.db"
+#define DATA "db_files/Mac.db"
+#define USED_MAC_ADDRESSES "db_files/Used_Mac.db"
 
 // Initialize both databases and verify progressive seed tracker row
 void Init_Database() {
