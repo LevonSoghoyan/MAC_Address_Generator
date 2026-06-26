@@ -137,36 +137,67 @@ Wipe old placeholder entries completely and paste this proxy architecture map:
 
 
 server {
-
     listen 80;
     server_name 10.101.0.6;
     return 301 https://$host$request_uri;
-    
 }
 
 server {
+        listen 443 ssl;
+        server_name 10.101.0.6;
 
-    listen 443 ssl;
-    server_name 10.101.0.6;
-    ssl_certificate /etc/ssl/certs/nginx-selfsigned.crt;
-    ssl_certificate_key /etc/ssl/private/nginx-selfsigned.key;
-    ssl_protocols TLSv1.2 TLSv1.3;
-    ssl_ciphers HIGH:!aNULL:!MD5;
-    location / {
-        root /var/www/html/mac_portal;
-        index index.html;
-        try_files $uri $uri/ =404;
-    }
-    location /gmac {
-        proxy_pass http://127.0.0.1:55555;
-        proxy_set_header X-Real-IP $remote_addr;
-    }
-    location /showmac {
-        proxy_pass http://127.0.0.1:55555;
-        proxy_set_header X-Real-IP $remote_addr;
-    }
-    
+        ssl_certificate /etc/ssl/certs/nginx-selfsigned.crt;
+        ssl_certificate_key /etc/ssl/private/nginx-selfsigned.key;
+
+        ssl_protocols TLSv1.2 TLSv1.3;
+        ssl_ciphers HIGH:!aNULL:!MD5;
+
+        location / {
+                root /var/www/html/mac_portal;
+                index index.html;
+                try_files $uri $uri/ =404;
+        }
+
+        location /gmac {
+                proxy_pass http://127.0.0.1:55555;
+                proxy_set_header Host $host;
+                proxy_set_header X-Real-IP $remote_addr;
+                proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                proxy_set_header X-Forwarded-Proto $scheme;
+        }
+
+        location /force_gen {
+                proxy_pass http://127.0.0.1:55555;
+                proxy_set_header Host $host;
+                proxy_set_header X-Real-IP $remote_addr;
+                proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                proxy_set_header X-Forwarded-Proto $scheme;
+        }
+        location /usedmac {
+                proxy_pass http://127.0.0.1:55555;
+                proxy_set_header Host $host;
+                proxy_set_header X-Real-IP $remote_addr;
+                proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                proxy_set_header X-Forwarded-Proto $scheme;
+        }
+        location /showmac {
+                proxy_pass http://127.0.0.1:55555;
+                proxy_set_header Host $host;
+                proxy_set_header X-Real-IP $remote_addr;
+                proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                proxy_set_header X-Forwarded-Proto $scheme;
+        }
+        location /find_active {
+                proxy_pass http://127.0.0.1:55555;
+                proxy_set_header X-Real-IP $remote_addr;
+        }
+
+        location /find_used {
+                proxy_pass http://127.0.0.1:55555;
+                proxy_set_header X-Real-IP $remote_addr;
+        }
 }
+
 
 -------------------------------------------------------------------------------
 STEP 7: RUN SYNTAX VALIDATIONS AND RESTART PROXY
