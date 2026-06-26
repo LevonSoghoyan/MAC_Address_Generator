@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MAC Address Generator Portal</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-[#0f172a] text-slate-100 min-h-screen font-sans antialiased">
+
+    <header class="border-b border-slate-800 bg-slate-900/50 backdrop-blur-md sticky top-0 z-50 px-6 py-4 flex justify-between items-center">
+        <div class="flex items-center gap-3">
+            <div class="bg-gradient-to-tr from-indigo-600 to-violet-500 p-2 rounded-xl">
+                <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                </svg>
+            </div>
+            <div>
+                <h1 class="text-lg font-bold tracking-tight bg-gradient-to-r from-indigo-400 to-violet-400 bg-clip-text text-transparent">MAC Multi-Generator</h1>
+                <p class="text-xs text-slate-400 font-medium">Production Line System</p>
+            </div>
+        </div>
+        <div class="bg-slate-900 border border-slate-800 px-4 py-2 rounded-xl flex items-center gap-2">
+            <span class="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></span>
+            <span class="text-xs text-slate-300 font-semibold uppercase tracking-wider">Web Mode Active</span>
+        </div>
+    </header>
+
+    <main class="max-w-6xl mx-auto p-6 space-y-6">
+        
+        <section class="bg-slate-900/40 border border-slate-800 rounded-2xl p-6 shadow-xl backdrop-blur-sm">
+            <h2 class="text-base font-bold text-slate-200 mb-2">⚡ High-Speed Scanner Mode</h2>
+            <p class="text-xs text-slate-400 mb-6">Enter metrics. Note: Both Serial Number and Part Number are strictly required inputs to generate pools.</p>
+            
+            <form onsubmit="event.preventDefault();" class="space-y-4">
+                <div class="grid grid-cols-1 sm:grid-cols-5 gap-4">
+                    <div class="sm:col-span-1">
+                        <label class="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">Part Number (PN)</label>
+                        <input type="text" id="partInput" placeholder="Part identification..." autofocus
+                               class="w-full bg-[#090d16] border border-slate-800 rounded-xl px-4 py-3 text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:border-indigo-500 transition">
+                    </div>
+                    <div class="sm:col-span-1">
+                        <label class="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">Device Serial Number</label>
+                        <input type="text" id="serialInput" placeholder="Scan barcode..."
+                               class="w-full bg-[#090d16] border border-slate-800 rounded-xl px-4 py-3 text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:border-indigo-500 transition">
+                    </div>
+                    <div>
+                        <label id="countLabel" class="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">Allocation Count (Max 50)</label>
+                        <input type="number" id="countInput" value="1" min="1" max="50"
+                               class="w-full bg-[#090d16] border border-slate-800 rounded-xl px-4 py-3 text-sm text-slate-100 focus:outline-none focus:border-indigo-500 transition">
+                    </div>
+                    <div class="flex items-end gap-2 sm:col-span-2">
+                        <button type="button" onclick="generateMac()"
+                                class="w-full bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold py-3.5 rounded-xl shadow-lg transition duration-150 uppercase tracking-wider">
+                            Generate
+                        </button>
+                        <button type="button" onclick="triggerSearchPipeline()"
+                                class="w-full bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold py-3.5 rounded-xl shadow-lg transition duration-150 border border-slate-700 uppercase tracking-wider">
+                            Find Device
+                        </button>
+                    </div>
+                </div>
+
+                <div class="flex items-center gap-3 pt-2 border-t border-slate-800/60">
+                    <label class="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" id="forceToggle" class="sr-only peer">
+                        <div class="w-9 h-5 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-slate-400 peer-checked:after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-rose-600"></div>
+                    </label>
+                    <span class="text-xs font-semibold text-slate-300 tracking-wide selection:bg-transparent">
+                        Force Overwrite / Regenerate <span class="text-slate-500 font-normal">(Archives previous allocations down to Used_Mac.db and issues fresh parameters matching the new allocation count size)</span>
+                    </span>
+                </div>
+            </form>
+            
+            <div id="alertBox" class="mt-4 hidden p-4 rounded-xl text-xs font-mono whitespace-pre-line border"></div>
+        </section>
+
+        <div class="flex border-b border-slate-800 gap-2">
+            <button id="tabActiveBtn" onclick="switchTab('active')" class="px-5 py-3 text-xs font-bold uppercase tracking-wider border-b-2 border-indigo-500 text-indigo-400 transition">
+                📂 Active Registry (Mac.db)
+            </button>
+            <button id="tabUsedBtn" onclick="switchTab('used')" class="px-5 py-3 text-xs font-bold uppercase tracking-wider border-b-2 border-transparent text-slate-400 hover:text-slate-200 transition">
+                📜 Archived Overwritten Log (Used_Mac.db)
+            </button>
+        </div>
+
+        <section class="bg-slate-900/40 border border-slate-800 rounded-2xl shadow-xl overflow-hidden backdrop-blur-sm">
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse">
+                    <thead>
+                        <tr class="bg-slate-900/60 text-slate-400 text-[11px] font-bold uppercase tracking-wider border-b border-slate-800">
+                            <th class="px-6 py-4">Workstation Client IP</th>
+                            <th class="px-6 py-4">Part Number (PN)</th>
+                            <th class="px-6 py-4">Hardware Serial Identifier (SN)</th>
+                            <th class="px-6 py-4">Assigned Unicast MAC Address</th>
+                        </tr>
+                    </thead>
+                    <tbody id="deviceTableBody" class="divide-y divide-slate-800/60 text-xs font-mono"></tbody>
+                </table>
+            </div>
+        </section>
+    </main>
+
+    <script>
+        let currentActiveTab = 'active';
+        let highlightedMacs = []; 
+        let activeSearchQuery = null; // Caches target metrics for state persistence during tab swaps
+
+        function switchTab(targetTab) {
+            currentActiveTab = targetTab;
+            const activeBtn = document.getElementById('tabActiveBtn');
+            const usedBtn = document.getElementById('tabUsedBtn');
+            
+            if (targetTab === 'active') {
+                activeBtn.className = "px-5 py-3 text-xs font-bold uppercase tracking-wider border-b-2 border-indigo-500 text-indigo-400 transition";
+                usedBtn.className = "px-5 py-3 text-xs font-bold uppercase tracking-wider border-b-2 border-transparent text-slate-400 hover:text-slate-200 transition";
+            } else {
+                activeBtn.className = "px-5 py-3 text-xs font-bold uppercase tracking-wider border-b-2 border-transparent text-slate-400 hover:text-slate-200 transition";
+                usedBtn.className = "px-5 py-3 text-xs font-bold uppercase tracking-wider border-b-2 border-rose-500 text-rose-400 transition";
+            }
+            loadDevices();
+        }
+
+        function renderRows(text) {
+            const tbody = document.getElementById('deviceTableBody');
+            const lines = text.split('\n').filter(line => line.trim());
+            tbody.innerHTML = '';
+            
+            if (lines.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="4" class="px-6 py-10 text-center text-slate-500">No matching items found across this dataset view.</td></tr>`;
+                return;
+            }
+
+            lines.forEach(line => {
+                const match = line.match(/IP:\s*([^\s\|]+).*PN:\s*([^\s\|]+).*SN:\s*([^\s\|]+).*MAC:\s*([^\s\|]+)/);
+                if (match) {
+                    const ip = match[1];
+                    const pn = match[2];
+                    const sn = match[3];
+                    const mac = match[4];
+
+                    const isNew = highlightedMacs.includes(mac);
+                    const rowClass = isNew 
+                        ? "bg-indigo-600/20 border-l-4 border-indigo-500 shadow-inner transition duration-500" 
+                        : "hover:bg-slate-800/20 transition";
+
+                    tbody.innerHTML += `
+                        <tr class="${rowClass}">
+                            <td class="px-6 py-4 text-indigo-400">${ip}</td>
+                            <td class="px-6 py-4 text-slate-100 font-medium">${pn}</td>
+                            <td class="px-6 py-4 text-slate-400">${sn}</td>
+                            <td class="px-6 py-4 ${isNew ? 'text-amber-400 font-extrabold tracking-widest scale-105' : (currentActiveTab === 'active' ? 'text-emerald-400' : 'text-rose-400/90')} font-bold tracking-wider">${mac}</td>
+                        </tr>`;
+                }
+            });
+        }
+
+        async function loadDevices() {
+            const tbody = document.getElementById('deviceTableBody');
+            tbody.innerHTML = `<tr><td colspan="4" class="px-6 py-12 text-center text-slate-500 animate-pulse">Querying database logs...</td></tr>`;
+            
+            let endpoint = "";
+            // If active search memory exists, branch routing paths to cross-database query points
+            if (activeSearchQuery) {
+                endpoint = (currentActiveTab === 'active') 
+                    ? `/find_active?sn=${activeSearchQuery.sn}&pn=${activeSearchQuery.pn}`
+                    : `/find_used?sn=${activeSearchQuery.sn}&pn=${activeSearchQuery.pn}`;
+            } else {
+                endpoint = (currentActiveTab === 'active') ? '/showmac' : '/usedmac';
+            }
+
+            try {
+                const response = await fetch(endpoint);
+                const text = await response.text();
+                renderRows(text);
+            } catch (err) {
+                tbody.innerHTML = `<tr><td colspan="4" class="px-6 py-10 text-center text-rose-400 font-bold">Error connecting to server.</td></tr>`;
+            }
+        }
+
+        async function generateMac() {
+            const inputField = document.getElementById('serialInput');
+            const partField = document.getElementById('partInput');
+            const countField = document.getElementById('countInput');
+            const forceToggle = document.getElementById('forceToggle');
+            const alertBox = document.getElementById('alertBox');
+            
+            const sn = inputField.value.trim();
+            const pn = partField.value.trim();
+            const count = parseInt(countField.value.trim()) || 1;
+
+            if (!sn || !pn) {
+                alertBox.className = "mt-4 p-4 rounded-xl text-xs bg-amber-950/40 border border-amber-500/20 text-amber-300";
+                alertBox.innerText = "Error: Input fields missing. Both Part Number and Serial Number must be scanned to run generation pipelines.";
+                alertBox.classList.remove('hidden');
+                return;
+            }
+
+            // Client-side protective validation check mirroring backend safeguards
+            if (count > 50) {
+                alertBox.className = "mt-4 p-4 rounded-xl text-xs bg-rose-950/40 border border-rose-500/20 text-rose-300 font-bold";
+                alertBox.innerText = "Operation Rejected: Allocation requests cannot exceed 50 per cycle to ensure memory buffer safety limits.";
+                alertBox.classList.remove('hidden');
+                return;
+            }
+
+            activeSearchQuery = null; // Clear search constraints upon issuing fresh allocations
+            const isForceMode = forceToggle.checked;
+            const endpoint = isForceMode ? '/force_gen' : '/gmac';
+            let url = `${endpoint}?sn=${encodeURIComponent(sn)}&pn=${encodeURIComponent(pn)}&count=${count}`;
+
+            try {
+                const response = await fetch(url);
+                const result = await response.text();
+                
+                if (response.ok && !result.toLowerCase().includes('error')) {
+                    const macRegex = /([0-9A-F]{2}:){5}[0-9A-F]{2}/gi;
+                    highlightedMacs = result.match(macRegex) || [];
+
+                    alertBox.classList.add('hidden');
+                    inputField.value = ''; 
+                    inputField.focus();
+                    
+                    currentActiveTab = 'active';
+                    document.getElementById('tabActiveBtn').className = "px-5 py-3 text-xs font-bold uppercase tracking-wider border-b-2 border-indigo-500 text-indigo-400 transition";
+                    document.getElementById('tabUsedBtn').className = "px-5 py-3 text-xs font-bold uppercase tracking-wider border-b-2 border-transparent text-slate-400 hover:text-slate-200 transition";
+                    
+                    renderRows(result);
+                } else {
+                    highlightedMacs = [];
+                    alertBox.className = "mt-4 p-4 rounded-xl text-xs bg-amber-950/40 border border-amber-500/20 text-amber-300";
+                    alertBox.innerText = result;
+                    alertBox.classList.remove('hidden');
+                }
+            } catch (err) {
+                highlightedMacs = [];
+                alertBox.className = "mt-4 p-4 rounded-xl text-xs bg-rose-950/40 border border-rose-500/20 text-rose-300";
+                alertBox.innerText = "Critical network communication failure.";
+                alertBox.classList.remove('hidden');
+            }
+        }
+
+        // Commits look-up params to memory cache and fetches current view allocations immediately
+        function triggerSearchPipeline() {
+            const inputField = document.getElementById('serialInput');
+            const partField = document.getElementById('partInput');
+            const alertBox = document.getElementById('alertBox');
+            
+            const sn = inputField.value.trim();
+            const pn = partField.value.trim();
+
+            if (!sn && !pn) {
+                alertBox.className = "mt-4 p-4 rounded-xl text-xs bg-amber-950/40 border border-amber-500/20 text-amber-300";
+                alertBox.innerText = "Error: Enter a Part Number, Serial Number, or both fields to filter searches.";
+                alertBox.classList.remove('hidden');
+                return;
+            }
+
+            // Setup criteria memory parameters globally
+            activeSearchQuery = { sn: encodeURIComponent(sn), pn: encodeURIComponent(pn) };
+            
+            // Build temporary search warning banner containing a quick clearing link
+            alertBox.className = "mt-4 p-4 rounded-xl text-xs bg-indigo-950/40 border border-indigo-500/30 text-indigo-300 flex justify-between items-center";
+            alertBox.innerHTML = `<span>🔍 Active Filter Matrix Engaged. Toggling tabs will now sort results across respective active and archive tables.</span>
+                                  <button onclick="clearSearchFilter()" class="bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-3 py-1 rounded-md transition uppercase tracking-wider text-[10px]">Clear Filter</button>`;
+            alertBox.classList.remove('hidden');
+
+            highlightedMacs = []; 
+            loadDevices(); // Launch load pipeline using newly defined routing states
+        }
+
+        function clearSearchFilter() {
+            document.getElementById('serialInput').value = "";
+            document.getElementById('partInput').value = "";
+            document.getElementById('alertBox').classList.add('hidden');
+            activeSearchQuery = null;
+            loadDevices();
+        }
+
+        window.onload = loadDevices;
+    </script>
+</body>
+</html>

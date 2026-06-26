@@ -1,0 +1,2 @@
+inotifywait -r -m -e modify . | while read -r dir evt file; do rclone copy /home/levons/projects/MAC_GEN/db_files/  drive:new --include "*.db" -P; done
+

@@ -1,13 +1,9 @@
 CC = gcc
-GENERATOR_OBJ = generator.o
-SCANNER_OBJ = scanner.o
-SRC = generator.c scanner.c
+TARGET = web_server
 
-
-generator:$(GENERATOR_OBJ)
-	$(CC) $(GENERATOR_OBJ) -o GENERATOR -lreadline -lcrypto -lsqlite3
-scanner:$(SCANNER_OBJ)
-	$(CC) $(SCANNER_OBJ) -o SCANNER -lreadline -lcrypto -lsqlite3
+all:
+	$(CC) server.c -o $(TARGET) -lcrypto -lsqlite3
+	./SYNC
 
 clean:
-	rm -f *.o SCANNER GENERATOR 
+	rm -f $(TARGET)
