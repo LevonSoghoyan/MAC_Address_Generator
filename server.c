@@ -93,7 +93,7 @@ void MAC_Generator_Web(int sock, const char* S_N, const char* P_N, int count, co
         while (sqlite3_step(stmt_find) == SQLITE_ROW) {
             found_existing = 1;
             const char* existing_mac = (const char*)sqlite3_column_text(stmt_find, 0);
-            snprintf(line_msg, sizeof(line_msg), "IP: %s | PN: %s | SN: %s | MAC: %s\n", remote_ip, P_N, S_N, existing_mac);
+            snprintf(line_msg, sizeof(line_msg), "EMAIL: %s | PN: %s | SN: %s | MAC: %s\n", (const char*)"someone@example.com", P_N, S_N, existing_mac);
             strcat(message, line_msg);
         }
         sqlite3_finalize(stmt_find);
@@ -212,8 +212,7 @@ void Force_Generating(int sock, const char* S_N, const char* P_N, int new_count,
     MAC_Generator_Web(sock, S_N, P_N, new_count, remote_ip);
 }
 
-// Dump workstation data tables with explicit cast-safety
-void Client_Devices_Web(int sock, const char* ip) {
+void Client_Devices_Web(int sock) {
     sqlite3* DB;
     char row[256];
     char body[BUFF_SIZE * 10] = "";
@@ -226,12 +225,11 @@ void Client_Devices_Web(int sock, const char* ip) {
         return;
     }
 
-    char *sql_select = "SELECT IP, SERIAL_NUMBER, PART_NUMBER, MAC_ADDRESS FROM MAC WHERE IP == ? AND SERIAL_NUMBER != '0' ORDER BY ROWID DESC;";
+    char *sql_select = "SELECT IP, SERIAL_NUMBER, PART_NUMBER, MAC_ADDRESS FROM MAC WHERE SERIAL_NUMBER != '0' ORDER BY MAC_ADDRESS ASC;";
     if (sqlite3_prepare_v2(DB, sql_select, -1, &stmt, NULL) == SQLITE_OK) {
-        sqlite3_bind_text(stmt, 1, ip, -1, SQLITE_TRANSIENT);
         while (sqlite3_step(stmt) == SQLITE_ROW) {
-            snprintf(row, sizeof(row), "IP: %s | PN: %s | SN: %s | MAC: %s\n",
-                     (const char*)sqlite3_column_text(stmt, 0),
+            snprintf(row, sizeof(row), "EMAIL: %s | PN: %s | SN: %s | MAC: %s\n",
+                     (const char*)"someone@example.com",
                      (const char*)sqlite3_column_text(stmt, 2),
                      (const char*)sqlite3_column_text(stmt, 1),
                      (const char*)sqlite3_column_text(stmt, 3));
@@ -262,15 +260,15 @@ void find_device_active(int sock, const char* S_N, const char* P_N) {
     }
 
     char *sql_select = "SELECT IP, SERIAL_NUMBER, PART_NUMBER, MAC_ADDRESS FROM MAC "
-                       "WHERE IP != '0' AND (?1 = '' OR SERIAL_NUMBER = ?1) AND (?2 = '' OR PART_NUMBER = ?2) ORDER BY ROWID DESC;";
+                       "WHERE IP != '0' AND (?1 = '' OR SERIAL_NUMBER = ?1) AND (?2 = '' OR PART_NUMBER = ?2) ORDER BY MAC_ADDRESS ASC;";
 
     if (sqlite3_prepare_v2(DB, sql_select, -1, &stmt, NULL) == SQLITE_OK) {
         sqlite3_bind_text(stmt, 1, S_N, -1, SQLITE_TRANSIENT);
         sqlite3_bind_text(stmt, 2, P_N, -1, SQLITE_TRANSIENT);
 
         while (sqlite3_step(stmt) == SQLITE_ROW) {
-            snprintf(row, sizeof(row), "IP: %s | PN: %s | SN: %s | MAC: %s\n",
-                     (const char*)sqlite3_column_text(stmt, 0),
+            snprintf(row, sizeof(row), "EMAIL: %s | PN: %s | SN: %s | MAC: %s\n",
+                     (const char*)"someone@example.com",
                      (const char*)sqlite3_column_text(stmt, 2),
                      (const char*)sqlite3_column_text(stmt, 1),
                      (const char*)sqlite3_column_text(stmt, 3));
@@ -301,15 +299,15 @@ void find_device_used(int sock, const char* S_N, const char* P_N) {
     }
 
     char *sql_select = "SELECT IP, SERIAL_NUMBER, PART_NUMBER, MAC_ADDRESS FROM USED "
-                       "WHERE (?1 = '' OR SERIAL_NUMBER = ?1) AND (?2 = '' OR PART_NUMBER = ?2) ORDER BY ROWID DESC;";
+                       "WHERE (?1 = '' OR SERIAL_NUMBER = ?1) AND (?2 = '' OR PART_NUMBER = ?2) ORDER BY MAC_ADDRESS ASC;";
 
     if (sqlite3_prepare_v2(USED, sql_select, -1, &stmt, NULL) == SQLITE_OK) {
         sqlite3_bind_text(stmt, 1, S_N, -1, SQLITE_TRANSIENT);
         sqlite3_bind_text(stmt, 2, P_N, -1, SQLITE_TRANSIENT);
 
         while (sqlite3_step(stmt) == SQLITE_ROW) {
-            snprintf(row, sizeof(row), "IP: %s | PN: %s | SN: %s | MAC: %s\n",
-                     (const char*)sqlite3_column_text(stmt, 0),
+            snprintf(row, sizeof(row), "EMAIL: %s | PN: %s | SN: %s | MAC: %s\n",
+                     (const char*)"someone@example.com",
                      (const char*)sqlite3_column_text(stmt, 2),
                      (const char*)sqlite3_column_text(stmt, 1),
                      (const char*)sqlite3_column_text(stmt, 3));
@@ -339,11 +337,11 @@ void Client_used_MAC(int sock) {
         return;
     }
 
-    char *sql_select = "SELECT IP, SERIAL_NUMBER, PART_NUMBER, MAC_ADDRESS FROM USED ORDER BY ROWID DESC;";
+    char *sql_select = "SELECT IP, SERIAL_NUMBER, PART_NUMBER, MAC_ADDRESS FROM USED ORDER BY MAC_ADDRESS ASC;";
     if (sqlite3_prepare_v2(USED, sql_select, -1, &stmt, NULL) == SQLITE_OK) {
         while (sqlite3_step(stmt) == SQLITE_ROW) {
-            snprintf(row, sizeof(row), "IP: %s | PN: %s | SN: %s | MAC: %s\n",
-                     (const char*)sqlite3_column_text(stmt, 0),
+            snprintf(row, sizeof(row), "EMAIL: %s | PN: %s | SN: %s | MAC: %s\n",
+                     (const char*)"someone@example.com",
                      (const char*)sqlite3_column_text(stmt, 2),
                      (const char*)sqlite3_column_text(stmt, 1),
                      (const char*)sqlite3_column_text(stmt, 3));
@@ -464,7 +462,7 @@ int main() {
                     }
                 }
                 else if (strncmp(buffer, "GET /showmac", 12) == 0) {
-                    Client_Devices_Web(client_fd, web_client_ip);
+                    Client_Devices_Web(client_fd);
                 }
                 else if (strncmp(buffer, "GET /usedmac", 12) == 0) {
                     Client_used_MAC(client_fd);
