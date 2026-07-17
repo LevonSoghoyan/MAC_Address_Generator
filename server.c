@@ -9,31 +9,76 @@
 #include <sqlite3.h>
 #include <openssl/sha.h>
 #include <errno.h>
+#include <stdbool.h>
+#include <sys/stat.h> 
 
 #define PORT 55555
 #define BUFF_SIZE 2048
 #define DATA "db_files/Mac.db"
 #define USED_MAC_ADDRESSES "db_files/Used_Mac.db"
 
-// Initialize both databases and verify progressive seed tracker row
+void URL_Decode(char* src) {
+    char* dst = src;
+    while (*src) {
+        if (*src == '%' && src[1] && src[2]) {
+            char hex[3] = { src[1], src[2], '\0' };
+            *dst = (char)strtol(hex, NULL, 16);
+            src += 3;
+        } else {
+            *dst = *src;
+            src++;
+        }
+        dst++;
+    }
+    *dst = '\0';
+}
+
+bool Is_Valid_Email(const char* email) {
+    if (!email || strlen(email) < 5) return false;
+
+    const char* at = strchr(email, '@');
+    if (!at) return false;
+
+    if (strchr(at + 1, '@')) return false;
+
+    const char* dot = strchr(at + 1, '.');
+    if (!dot) return false;
+
+    if (at == email || *(dot + 1) == '\0' || dot == at + 1) return false;
+
+    for (int i = 0; email[i] != '\0'; i++) {
+        if (email[i] <= 32 || email[i] >= 127 || email[i] == '(' || email[i] == ')' || email[i] == '<' || email[i] == '>') {
+            return false;
+        }
+    }
+
+    return true;
+}
+
 void Init_Database() {
+    mkdir("db_files", 0777);
+
     sqlite3* USED;
     char* err_msg = 0;
-    if (sqlite3_open(USED_MAC_ADDRESSES, &USED) == SQLITE_OK) {
+    int rc = sqlite3_open(USED_MAC_ADDRESSES, &USED);
+    if (rc == SQLITE_OK) {
         char* sql = "CREATE TABLE IF NOT EXISTS USED("
-                    "IP TEXT, "
+                    "EMAIL TEXT, "
                     "SERIAL_NUMBER TEXT, "
                     "PART_NUMBER TEXT, "
                     "MAC_ADDRESS TEXT);";
         sqlite3_exec(USED, sql, 0, 0, &err_msg);
         sqlite3_close(USED);
+    } else {
+        fprintf(stderr, "Failed to open USED database: %s\n", sqlite3_errstr(rc));
     }
 
     sqlite3* DB;
     err_msg = 0;
-    if (sqlite3_open(DATA, &DB) == SQLITE_OK) {
+    rc = sqlite3_open(DATA, &DB);
+    if (rc == SQLITE_OK) {
         char* sql = "CREATE TABLE IF NOT EXISTS MAC("
-                    "IP TEXT, "
+                    "EMAIL TEXT, "
                     "SERIAL_NUMBER TEXT, "
                     "PART_NUMBER TEXT, "
                     "MAC_ADDRESS TEXT UNIQUE);";
@@ -41,7 +86,7 @@ void Init_Database() {
 
         sqlite3_stmt *stmt;
         int tracking_row_exists = 0;
-        if (sqlite3_prepare_v2(DB, "SELECT 1 FROM MAC WHERE IP='0' AND SERIAL_NUMBER='0';", -1, &stmt, NULL) == SQLITE_OK) {
+        if (sqlite3_prepare_v2(DB, "SELECT 1 FROM MAC WHERE EMAIL='0' AND SERIAL_NUMBER='0';", -1, &stmt, NULL) == SQLITE_OK) {
             if (sqlite3_step(stmt) == SQLITE_ROW) {
                 tracking_row_exists = 1;
             }
@@ -52,27 +97,26 @@ void Init_Database() {
             sqlite3_exec(DB, "INSERT INTO MAC VALUES('0', '0', '0', '1');", 0, 0, &err_msg);
         }
         sqlite3_close(DB);
-    }
-}
-
-// Extract real client IP from Nginx downstream headers
-void Extract_Real_IP(const char* request, char* output_ip) {
-    char* header = strstr(request, "X-Real-IP: ");
-    if (header) {
-        header += 11;
-        int i = 0;
-        while (header[i] != '\r' && header[i] != '\n' && header[i] != ' ' && i < 15) {
-            output_ip[i] = header[i];
-            i++;
-        }
-        output_ip[i] = '\0';
     } else {
-        strcpy(output_ip, "127.0.0.1");
+        fprintf(stderr, "Failed to open MAC database: %s\n", sqlite3_errstr(rc));
     }
 }
+    void Extract_Real_EMAIL_Header(const char* request, char* output_email) {
+     char* header = strstr(request, "X-Real-EMAIL: ");
+     if (header) {
+         header += 14;
+         int i = 0;
+         while (header[i] != '\r' && header[i] != '\n' && header[i] != ' ' && i < 44) {
+             output_email[i] = header[i];
+             i++;
+         }
+         output_email[i] = '\0';
+     } else {
+         output_email[0] = '\0';
+     }
+}
 
-// Sequential MAC generator with duplicate look-up protection
-void MAC_Generator_Web(int sock, const char* S_N, const char* P_N, int count, const char* remote_ip) {
+void MAC_Generator_Web(int sock, const char* S_N, const char* P_N, int count, const char* client_email) {
     sqlite3* DB;
     if (sqlite3_open(DATA, &DB) != SQLITE_OK) {
         char* err = "HTTP/1.1 500 Error\r\nContent-Type: text/plain\r\nConnection: close\r\n\r\nDB Failure.";
@@ -85,7 +129,7 @@ void MAC_Generator_Web(int sock, const char* S_N, const char* P_N, int count, co
     int found_existing = 0;
 
     sqlite3_stmt *stmt_find;
-    char *sql_find = "SELECT MAC_ADDRESS FROM MAC WHERE SERIAL_NUMBER = ? AND PART_NUMBER = ? AND IP != '0';";
+    char *sql_find = "SELECT MAC_ADDRESS FROM MAC WHERE SERIAL_NUMBER = ? AND PART_NUMBER = ? AND EMAIL != '0';";
     if (sqlite3_prepare_v2(DB, sql_find, -1, &stmt_find, NULL) == SQLITE_OK) {
         sqlite3_bind_text(stmt_find, 1, S_N, -1, SQLITE_TRANSIENT);
         sqlite3_bind_text(stmt_find, 2, P_N, -1, SQLITE_TRANSIENT);
@@ -93,7 +137,7 @@ void MAC_Generator_Web(int sock, const char* S_N, const char* P_N, int count, co
         while (sqlite3_step(stmt_find) == SQLITE_ROW) {
             found_existing = 1;
             const char* existing_mac = (const char*)sqlite3_column_text(stmt_find, 0);
-            snprintf(line_msg, sizeof(line_msg), "IP: %s | PN: %s | SN: %s | MAC: %s\n", remote_ip, P_N, S_N, existing_mac);
+            snprintf(line_msg, sizeof(line_msg), "EMAIL: %s | PN: %s | SN: %s | MAC: %s\n", client_email, P_N, S_N, existing_mac);
             strcat(message, line_msg);
         }
         sqlite3_finalize(stmt_find);
@@ -102,7 +146,7 @@ void MAC_Generator_Web(int sock, const char* S_N, const char* P_N, int count, co
     if (!found_existing) {
         long long current_counter = 1;
         sqlite3_stmt *stmt_get;
-        if (sqlite3_prepare_v2(DB, "SELECT MAC_ADDRESS FROM MAC WHERE IP='0' AND SERIAL_NUMBER='0';", -1, &stmt_get, NULL) == SQLITE_OK) {
+        if (sqlite3_prepare_v2(DB, "SELECT MAC_ADDRESS FROM MAC WHERE EMAIL='0' AND SERIAL_NUMBER='0';", -1, &stmt_get, NULL) == SQLITE_OK) {
             if (sqlite3_step(stmt_get) == SQLITE_ROW) {
                 current_counter = atoll((const char*)sqlite3_column_text(stmt_get, 0));
             }
@@ -128,7 +172,7 @@ void MAC_Generator_Web(int sock, const char* S_N, const char* P_N, int count, co
             sqlite3_stmt *stmt_ins;
             char *sql_ins = "INSERT INTO MAC VALUES(?,?,?,?);";
             if (sqlite3_prepare_v2(DB, sql_ins, -1, &stmt_ins, NULL) == SQLITE_OK) {
-                sqlite3_bind_text(stmt_ins, 1, remote_ip, -1, SQLITE_TRANSIENT);
+                sqlite3_bind_text(stmt_ins, 1, client_email, -1, SQLITE_TRANSIENT);
                 sqlite3_bind_text(stmt_ins, 2, S_N, -1, SQLITE_TRANSIENT);
                 sqlite3_bind_text(stmt_ins, 3, P_N, -1, SQLITE_TRANSIENT);
                 sqlite3_bind_text(stmt_ins, 4, mac_str, -1, SQLITE_TRANSIENT);
@@ -136,7 +180,7 @@ void MAC_Generator_Web(int sock, const char* S_N, const char* P_N, int count, co
                 sqlite3_finalize(stmt_ins);
             }
 
-            snprintf(line_msg, sizeof(line_msg), "IP: %s | PN: %s | SN: %s | MAC: %s\n", remote_ip, P_N, S_N, mac_str);
+            snprintf(line_msg, sizeof(line_msg), "EMAIL: %s | PN: %s | SN: %s | MAC: %s\n", client_email, P_N, S_N, mac_str);
             strcat(message, line_msg);
             current_counter++;
         }
@@ -145,7 +189,7 @@ void MAC_Generator_Web(int sock, const char* S_N, const char* P_N, int count, co
         char next_counter_str[32];
         snprintf(next_counter_str, sizeof(next_counter_str), "%lld", current_counter);
 
-        if (sqlite3_prepare_v2(DB, "UPDATE MAC SET MAC_ADDRESS = ? WHERE IP='0' AND SERIAL_NUMBER='0';", -1, &stmt_upd, NULL) == SQLITE_OK) {
+        if (sqlite3_prepare_v2(DB, "UPDATE MAC SET MAC_ADDRESS = ? WHERE EMAIL='0' AND SERIAL_NUMBER='0';", -1, &stmt_upd, NULL) == SQLITE_OK) {
             sqlite3_bind_text(stmt_upd, 1, next_counter_str, -1, SQLITE_TRANSIENT);
             sqlite3_step(stmt_upd);
             sqlite3_finalize(stmt_upd);
@@ -160,8 +204,7 @@ void MAC_Generator_Web(int sock, const char* S_N, const char* P_N, int count, co
     sqlite3_close(DB);
 }
 
-// Archives existing allocations to Used_Mac.db and generates using the NEW target count value
-void Force_Generating(int sock, const char* S_N, const char* P_N, int new_count, const char* remote_ip) {
+void Force_Generating(int sock, const char* S_N, const char* P_N, int new_count, const char* client_email) {
     sqlite3* DB;
     if (sqlite3_open(DATA, &DB) != SQLITE_OK) {
         char* err = "HTTP/1.1 500 Error\r\nContent-Type: text/plain\r\nConnection: close\r\n\r\nDB Failure.";
@@ -178,7 +221,7 @@ void Force_Generating(int sock, const char* S_N, const char* P_N, int new_count,
     }
 
     sqlite3_stmt *stmt_sel;
-    char *sql_sel = "SELECT IP, SERIAL_NUMBER, PART_NUMBER, MAC_ADDRESS FROM MAC WHERE SERIAL_NUMBER = ? AND PART_NUMBER = ? AND IP != '0';";
+    char *sql_sel = "SELECT EMAIL, SERIAL_NUMBER, PART_NUMBER, MAC_ADDRESS FROM MAC WHERE SERIAL_NUMBER = ? AND PART_NUMBER = ? AND EMAIL != '0';";
     if (sqlite3_prepare_v2(DB, sql_sel, -1, &stmt_sel, NULL) == SQLITE_OK) {
         sqlite3_bind_text(stmt_sel, 1, S_N, -1, SQLITE_TRANSIENT);
         sqlite3_bind_text(stmt_sel, 2, P_N, -1, SQLITE_TRANSIENT);
@@ -200,7 +243,7 @@ void Force_Generating(int sock, const char* S_N, const char* P_N, int new_count,
     sqlite3_close(USED);
 
     sqlite3_stmt *stmt_del;
-    char *sql_del = "DELETE FROM MAC WHERE SERIAL_NUMBER = ? AND PART_NUMBER = ? AND IP != '0';";
+    char *sql_del = "DELETE FROM MAC WHERE SERIAL_NUMBER = ? AND PART_NUMBER = ? AND EMAIL != '0';";
     if (sqlite3_prepare_v2(DB, sql_del, -1, &stmt_del, NULL) == SQLITE_OK) {
         sqlite3_bind_text(stmt_del, 1, S_N, -1, SQLITE_TRANSIENT);
         sqlite3_bind_text(stmt_del, 2, P_N, -1, SQLITE_TRANSIENT);
@@ -209,11 +252,10 @@ void Force_Generating(int sock, const char* S_N, const char* P_N, int new_count,
     }
     sqlite3_close(DB);
 
-    MAC_Generator_Web(sock, S_N, P_N, new_count, remote_ip);
+    MAC_Generator_Web(sock, S_N, P_N, new_count, client_email);
 }
 
-// Dump workstation data tables with explicit cast-safety
-void Client_Devices_Web(int sock, const char* ip) {
+void Client_Devices_Web(int sock, const char* email) {
     sqlite3* DB;
     char row[256];
     char body[BUFF_SIZE * 10] = "";
@@ -226,11 +268,10 @@ void Client_Devices_Web(int sock, const char* ip) {
         return;
     }
 
-    char *sql_select = "SELECT IP, SERIAL_NUMBER, PART_NUMBER, MAC_ADDRESS FROM MAC WHERE IP == ? AND SERIAL_NUMBER != '0' ORDER BY ROWID DESC;";
+    char *sql_select = "SELECT EMAIL, SERIAL_NUMBER, PART_NUMBER, MAC_ADDRESS FROM MAC WHERE EMAIL != '0' AND SERIAL_NUMBER != '0' ORDER BY MAC_ADDRESS ASC;";
     if (sqlite3_prepare_v2(DB, sql_select, -1, &stmt, NULL) == SQLITE_OK) {
-        sqlite3_bind_text(stmt, 1, ip, -1, SQLITE_TRANSIENT);
         while (sqlite3_step(stmt) == SQLITE_ROW) {
-            snprintf(row, sizeof(row), "IP: %s | PN: %s | SN: %s | MAC: %s\n",
+            snprintf(row, sizeof(row), "EMAIL: %s | PN: %s | SN: %s | MAC: %s\n",
                      (const char*)sqlite3_column_text(stmt, 0),
                      (const char*)sqlite3_column_text(stmt, 2),
                      (const char*)sqlite3_column_text(stmt, 1),
@@ -247,7 +288,6 @@ void Client_Devices_Web(int sock, const char* ip) {
     sqlite3_close(DB);
 }
 
-// Dynamic parameter lookup tool tracking active database matches strictly
 void find_device_active(int sock, const char* S_N, const char* P_N) {
     sqlite3* DB;
     char row[256];
@@ -261,15 +301,15 @@ void find_device_active(int sock, const char* S_N, const char* P_N) {
         return;
     }
 
-    char *sql_select = "SELECT IP, SERIAL_NUMBER, PART_NUMBER, MAC_ADDRESS FROM MAC "
-                       "WHERE IP != '0' AND (?1 = '' OR SERIAL_NUMBER = ?1) AND (?2 = '' OR PART_NUMBER = ?2) ORDER BY ROWID DESC;";
+    char *sql_select = "SELECT EMAIL, SERIAL_NUMBER, PART_NUMBER, MAC_ADDRESS FROM MAC "
+                        "WHERE EMAIL != '0' AND (?1 = '' OR SERIAL_NUMBER = ?1) AND (?2 = '' OR PART_NUMBER = ?2) ORDER BY MAC_ADDRESS ASC;";
 
     if (sqlite3_prepare_v2(DB, sql_select, -1, &stmt, NULL) == SQLITE_OK) {
         sqlite3_bind_text(stmt, 1, S_N, -1, SQLITE_TRANSIENT);
         sqlite3_bind_text(stmt, 2, P_N, -1, SQLITE_TRANSIENT);
 
         while (sqlite3_step(stmt) == SQLITE_ROW) {
-            snprintf(row, sizeof(row), "IP: %s | PN: %s | SN: %s | MAC: %s\n",
+            snprintf(row, sizeof(row), "EMAIL: %s | PN: %s | SN: %s | MAC: %s\n",
                      (const char*)sqlite3_column_text(stmt, 0),
                      (const char*)sqlite3_column_text(stmt, 2),
                      (const char*)sqlite3_column_text(stmt, 1),
@@ -286,7 +326,6 @@ void find_device_active(int sock, const char* S_N, const char* P_N) {
     send(sock, http_response, strlen(http_response), 0);
 }
 
-// Dynamic parameter lookup tool tracking archived log partition matches strictly
 void find_device_used(int sock, const char* S_N, const char* P_N) {
     sqlite3* USED;
     char row[256];
@@ -300,15 +339,15 @@ void find_device_used(int sock, const char* S_N, const char* P_N) {
         return;
     }
 
-    char *sql_select = "SELECT IP, SERIAL_NUMBER, PART_NUMBER, MAC_ADDRESS FROM USED "
-                       "WHERE (?1 = '' OR SERIAL_NUMBER = ?1) AND (?2 = '' OR PART_NUMBER = ?2) ORDER BY ROWID DESC;";
+    char *sql_select = "SELECT EMAIL, SERIAL_NUMBER, PART_NUMBER, MAC_ADDRESS FROM USED "
+                        "WHERE (?1 = '' OR SERIAL_NUMBER = ?1) AND (?2 = '' OR PART_NUMBER = ?2) ORDER BY MAC_ADDRESS ASC;";
 
     if (sqlite3_prepare_v2(USED, sql_select, -1, &stmt, NULL) == SQLITE_OK) {
         sqlite3_bind_text(stmt, 1, S_N, -1, SQLITE_TRANSIENT);
         sqlite3_bind_text(stmt, 2, P_N, -1, SQLITE_TRANSIENT);
 
         while (sqlite3_step(stmt) == SQLITE_ROW) {
-            snprintf(row, sizeof(row), "IP: %s | PN: %s | SN: %s | MAC: %s\n",
+            snprintf(row, sizeof(row), "EMAIL: %s | PN: %s | SN: %s | MAC: %s\n",
                      (const char*)sqlite3_column_text(stmt, 0),
                      (const char*)sqlite3_column_text(stmt, 2),
                      (const char*)sqlite3_column_text(stmt, 1),
@@ -325,7 +364,6 @@ void find_device_used(int sock, const char* S_N, const char* P_N) {
     send(sock, http_response, strlen(http_response), 0);
 }
 
-// Dump historical archived partitions out of Used_Mac.db
 void Client_used_MAC(int sock) {
     sqlite3* USED;
     char row[256];
@@ -339,10 +377,10 @@ void Client_used_MAC(int sock) {
         return;
     }
 
-    char *sql_select = "SELECT IP, SERIAL_NUMBER, PART_NUMBER, MAC_ADDRESS FROM USED ORDER BY ROWID DESC;";
+    char *sql_select = "SELECT EMAIL, SERIAL_NUMBER, PART_NUMBER, MAC_ADDRESS FROM USED ORDER BY MAC_ADDRESS ASC;";
     if (sqlite3_prepare_v2(USED, sql_select, -1, &stmt, NULL) == SQLITE_OK) {
         while (sqlite3_step(stmt) == SQLITE_ROW) {
-            snprintf(row, sizeof(row), "IP: %s | PN: %s | SN: %s | MAC: %s\n",
+            snprintf(row, sizeof(row), "EMAIL: %s | PN: %s | SN: %s | MAC: %s\n",
                      (const char*)sqlite3_column_text(stmt, 0),
                      (const char*)sqlite3_column_text(stmt, 2),
                      (const char*)sqlite3_column_text(stmt, 1),
@@ -388,7 +426,6 @@ int main() {
         exit(EXIT_FAILURE);
     }
 
-
     while (1) {
         client_fd = accept(server_fd, (struct sockaddr*)&address, &addr_size);
         if (client_fd < 0) continue;
@@ -401,8 +438,24 @@ int main() {
             if (bytes > 0) {
                 buffer[bytes] = '\0';
 
-                char web_client_ip[46] = {0};
-                Extract_Real_IP(buffer, web_client_ip);
+                char web_client_email[100] = {0};
+                
+                char* email_start = strstr(buffer, "email=");
+                if (email_start) {
+                    email_start += 6;
+                    int idx = 0;
+                    while (email_start[idx] != ' ' && email_start[idx] != '&' && email_start[idx] != '\r' && email_start[idx] != '\n' && idx < 99) {
+                        web_client_email[idx] = email_start[idx];
+                        idx++;
+                    }
+                    web_client_email[idx] = '\0';
+                    
+                    URL_Decode(web_client_email);
+                }
+
+                if (strlen(web_client_email) == 0) {
+                    Extract_Real_EMAIL_Header(buffer, web_client_email);
+                }
 
                 char extracted_sn[100] = {0};
                 char* sn_start = strstr(buffer, "sn=");
@@ -442,48 +495,45 @@ int main() {
                     count_val = atoi(count_str);
                 }
 
-                // CRITICAL CAPACITY BOUNDARY REJECTION INTERCEPTOR
                 if (count_val > 50 || count_val < 1) {
                     char* validation_err = "HTTP/1.1 400 Bad Request\r\nContent-Type: text/plain\r\nConnection: close\r\n\r\nError: Requested count bounds exceeded. Maximum allocation per individual pipeline transaction is capped at 50 to maintain database stability.\n";
                     send(client_fd, validation_err, strlen(validation_err), 0);
                 }
                 else if (strncmp(buffer, "GET /gmac", 9) == 0) {
-                    if (strlen(extracted_sn) == 0 || strlen(extracted_pn) == 0) {
+                    if (!Is_Valid_Email(web_client_email)) {
+                        char* validation_err = "HTTP/1.1 400 Bad Request\r\nContent-Type: text/plain\r\nConnection: close\r\n\r\nError: A valid email address (e.g., user@mail.com) is strictly required to generate a MAC address.\n";
+                        send(client_fd, validation_err, strlen(validation_err), 0);
+                    }
+                    else if (strlen(extracted_sn) == 0 || strlen(extracted_pn) == 0) {
                         char* validation_err = "HTTP/1.1 400 Bad Request\r\nContent-Type: text/plain\r\nConnection: close\r\n\r\nError: Both Serial Number (SN) and Part Number (PN) are strictly required parameters.\n";
                         send(client_fd, validation_err, strlen(validation_err), 0);
                     } else {
-                        MAC_Generator_Web(client_fd, extracted_sn, extracted_pn, count_val, web_client_ip);
+                        MAC_Generator_Web(client_fd, extracted_sn, extracted_pn, count_val, web_client_email);
                     }
                 }
                 else if (strncmp(buffer, "GET /force_gen", 14) == 0) {
-                    if (strlen(extracted_sn) == 0 || strlen(extracted_pn) == 0) {
+                    if (!Is_Valid_Email(web_client_email)) {
+                        char* validation_err = "HTTP/1.1 400 Bad Request\r\nContent-Type: text/plain\r\nConnection: close\r\n\r\nError: A valid email address (e.g., user@mail.com) is strictly required to overwrite tasks.\n";
+                        send(client_fd, validation_err, strlen(validation_err), 0);
+                    }
+                    else if (strlen(extracted_sn) == 0 || strlen(extracted_pn) == 0) {
                         char* validation_err = "HTTP/1.1 400 Bad Request\r\nContent-Type: text/plain\r\nConnection: close\r\n\r\nError: Both input metrics are required to execute overwrite tasks.\n";
                         send(client_fd, validation_err, strlen(validation_err), 0);
                     } else {
-                        Force_Generating(client_fd, extracted_sn, extracted_pn, count_val, web_client_ip);
+                        Force_Generating(client_fd, extracted_sn, extracted_pn, count_val, web_client_email);
                     }
                 }
                 else if (strncmp(buffer, "GET /showmac", 12) == 0) {
-                    Client_Devices_Web(client_fd, web_client_ip);
+                    Client_Devices_Web(client_fd, web_client_email);
                 }
                 else if (strncmp(buffer, "GET /usedmac", 12) == 0) {
                     Client_used_MAC(client_fd);
                 }
                 else if (strncmp(buffer, "GET /find_active", 16) == 0) {
-                    if (strlen(extracted_sn) == 0 && strlen(extracted_pn) == 0) {
-                        char* validation_err = "HTTP/1.1 400 Bad Request\r\nContent-Type: text/plain\r\nConnection: close\r\n\r\nError: Search criteria missing.\n";
-                        send(client_fd, validation_err, strlen(validation_err), 0);
-                    } else {
-                        find_device_active(client_fd, extracted_sn, extracted_pn);
-                    }
+                    find_device_active(client_fd, extracted_sn, extracted_pn);
                 }
                 else if (strncmp(buffer, "GET /find_used", 14) == 0) {
-                    if (strlen(extracted_sn) == 0 && strlen(extracted_pn) == 0) {
-                        char* validation_err = "HTTP/1.1 400 Bad Request\r\nContent-Type: text/plain\r\nConnection: close\r\n\r\nError: Search criteria missing.\n";
-                        send(client_fd, validation_err, strlen(validation_err), 0);
-                    } else {
-                        find_device_used(client_fd, extracted_sn, extracted_pn);
-                    }
+                    find_device_used(client_fd, extracted_sn, extracted_pn);
                 }
             }
             close(client_fd);

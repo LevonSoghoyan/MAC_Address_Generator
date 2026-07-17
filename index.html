@@ -8,104 +8,212 @@
 </head>
 <body class="bg-[#0f172a] text-slate-100 min-h-screen font-sans antialiased">
 
-    <header class="border-b border-slate-800 bg-slate-900/50 backdrop-blur-md sticky top-0 z-50 px-6 py-4 flex justify-between items-center">
-        <div class="flex items-center gap-3">
-            <div class="bg-gradient-to-tr from-indigo-600 to-violet-500 p-2 rounded-xl">
-                <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
-                </svg>
+    <!-- Authentication Screen -->
+    <div id="loginScreen" class="min-h-screen flex items-center justify-center bg-[#0f172a] px-4 hidden">
+        <div class="w-full max-w-md bg-slate-900/40 border border-slate-800 rounded-2xl p-8 shadow-2xl backdrop-blur-sm">
+            <!-- Portal Logo / Icon -->
+            <div class="flex flex-col items-center gap-3 mb-8">
+                <div class="bg-gradient-to-tr from-indigo-600 to-violet-500 p-3 rounded-2xl shadow-lg shadow-indigo-500/20">
+                    <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+                    </svg>
+                </div>
+                <div class="text-center">
+                    <h2 class="text-xl font-extrabold tracking-tight bg-gradient-to-r from-indigo-400 to-violet-400 bg-clip-text text-transparent">System Authentication</h2>
+                    <p class="text-xs text-slate-400 font-medium mt-1">MAC Multi-Generator Portal</p>
+                </div>
             </div>
-            <div>
-                <h1 class="text-lg font-bold tracking-tight bg-gradient-to-r from-indigo-400 to-violet-400 bg-clip-text text-transparent">MAC Multi-Generator</h1>
-                <p class="text-xs text-slate-400 font-medium">Production Line System</p>
-            </div>
-        </div>
-        <div class="bg-slate-900 border border-slate-800 px-4 py-2 rounded-xl flex items-center gap-2">
-            <span class="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></span>
-            <span class="text-xs text-slate-300 font-semibold uppercase tracking-wider">Web Mode Active</span>
-        </div>
-    </header>
 
-    <main class="max-w-6xl mx-auto p-6 space-y-6">
-        
-        <section class="bg-slate-900/40 border border-slate-800 rounded-2xl p-6 shadow-xl backdrop-blur-sm">
-            <h2 class="text-base font-bold text-slate-200 mb-2">⚡ High-Speed Scanner Mode</h2>
-            <p class="text-xs text-slate-400 mb-6">Enter metrics. Note: Both Serial Number and Part Number are strictly required inputs to generate pools.</p>
-            
-            <form onsubmit="event.preventDefault();" class="space-y-4">
-                <div class="grid grid-cols-1 sm:grid-cols-5 gap-4">
-                    <div class="sm:col-span-1">
-                        <label class="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">Part Number (PN)</label>
-                        <input type="text" id="partInput" placeholder="Part identification..." autofocus
-                               class="w-full bg-[#090d16] border border-slate-800 rounded-xl px-4 py-3 text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:border-indigo-500 transition">
-                    </div>
-                    <div class="sm:col-span-1">
-                        <label class="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">Device Serial Number</label>
-                        <input type="text" id="serialInput" placeholder="Scan barcode..."
-                               class="w-full bg-[#090d16] border border-slate-800 rounded-xl px-4 py-3 text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:border-indigo-500 transition">
-                    </div>
-                    <div>
-                        <label id="countLabel" class="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">Allocation Count (Max 50)</label>
-                        <input type="number" id="countInput" value="1" min="1" max="50"
-                               class="w-full bg-[#090d16] border border-slate-800 rounded-xl px-4 py-3 text-sm text-slate-100 focus:outline-none focus:border-indigo-500 transition">
-                    </div>
-                    <div class="flex items-end gap-2 sm:col-span-2">
-                        <button type="button" onclick="generateMac()"
-                                class="w-full bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold py-3.5 rounded-xl shadow-lg transition duration-150 uppercase tracking-wider">
-                            Generate
-                        </button>
-                        <button type="button" onclick="triggerSearchPipeline()"
-                                class="w-full bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold py-3.5 rounded-xl shadow-lg transition duration-150 border border-slate-700 uppercase tracking-wider">
-                            Find Device
-                        </button>
-                    </div>
+            <!-- Login Form -->
+            <form onsubmit="handleLogin(event)" class="space-y-5">
+                <div>
+                    <label class="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">Username</label>
+                    <input type="text" id="usernameInput" placeholder="Enter username..." required
+                           class="w-full bg-[#090d16] border border-slate-800 rounded-xl px-4 py-3 text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:border-indigo-500 transition">
+                </div>
+                <div>
+                    <label class="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">Password</label>
+                    <input type="password" id="passwordInput" placeholder="Enter password..." required
+                           class="w-full bg-[#090d16] border border-slate-800 rounded-xl px-4 py-3 text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:border-indigo-500 transition">
                 </div>
 
-                <div class="flex items-center gap-3 pt-2 border-t border-slate-800/60">
-                    <label class="relative inline-flex items-center cursor-pointer">
-                        <input type="checkbox" id="forceToggle" class="sr-only peer">
-                        <div class="w-9 h-5 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-slate-400 peer-checked:after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-rose-600"></div>
-                    </label>
-                    <span class="text-xs font-semibold text-slate-300 tracking-wide selection:bg-transparent">
-                        Force Overwrite / Regenerate <span class="text-slate-500 font-normal">(Archives previous allocations down to Used_Mac.db and issues fresh parameters matching the new allocation count size)</span>
-                    </span>
-                </div>
+                <!-- Error Notification -->
+                <div id="loginError" class="hidden text-xs text-rose-400 bg-rose-950/30 border border-rose-500/20 rounded-xl p-3 font-semibold text-center"></div>
+
+                <button type="submit"
+                        class="w-full bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white text-xs font-bold py-3.5 rounded-xl shadow-lg shadow-indigo-500/10 transition duration-150 uppercase tracking-wider">
+                    Access Console
+                </button>
             </form>
-            
-            <div id="alertBox" class="mt-4 hidden p-4 rounded-xl text-xs font-mono whitespace-pre-line border"></div>
-        </section>
-
-        <div class="flex border-b border-slate-800 gap-2">
-            <button id="tabActiveBtn" onclick="switchTab('active')" class="px-5 py-3 text-xs font-bold uppercase tracking-wider border-b-2 border-indigo-500 text-indigo-400 transition">
-                📂 Active Registry (Mac.db)
-            </button>
-            <button id="tabUsedBtn" onclick="switchTab('used')" class="px-5 py-3 text-xs font-bold uppercase tracking-wider border-b-2 border-transparent text-slate-400 hover:text-slate-200 transition">
-                📜 Archived Overwritten Log (Used_Mac.db)
-            </button>
         </div>
+    </div>
 
-        <section class="bg-slate-900/40 border border-slate-800 rounded-2xl shadow-xl overflow-hidden backdrop-blur-sm">
-            <div class="overflow-x-auto">
-                <table class="w-full text-left border-collapse">
-                    <thead>
-                        <tr class="bg-slate-900/60 text-slate-400 text-[11px] font-bold uppercase tracking-wider border-b border-slate-800">
-                            <th class="px-6 py-4">Workstation Client IP</th>
-                            <th class="px-6 py-4">Part Number (PN)</th>
-                            <th class="px-6 py-4">Hardware Serial Identifier (SN)</th>
-                            <th class="px-6 py-4">Assigned Unicast MAC Address</th>
-                        </tr>
-                    </thead>
-                    <tbody id="deviceTableBody" class="divide-y divide-slate-800/60 text-xs font-mono"></tbody>
-                </table>
+    <!-- Authorized Application Content Wrapper -->
+    <div id="appContent" class="hidden">
+        <!-- Sticky Header Area -->
+        <header class="border-b border-slate-800 bg-slate-900/50 backdrop-blur-md sticky top-0 z-50 px-6 py-4 flex justify-between items-center">
+            <div class="flex items-center gap-3">
+                <div class="bg-gradient-to-tr from-indigo-600 to-violet-500 p-2 rounded-xl">
+                    <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                    </svg>
+                </div>
+                <div>
+                    <h1 class="text-lg font-bold tracking-tight bg-gradient-to-r from-indigo-400 to-violet-400 bg-clip-text text-transparent">MAC Multi-Generator</h1>
+                    <p class="text-xs text-slate-400 font-medium">Production Line System</p>
+                </div>
             </div>
-        </section>
-    </main>
+            <div class="flex items-center gap-4">
+                <div id="statusBadge" class="bg-slate-900 border border-slate-800 px-4 py-2 rounded-xl flex items-center gap-2">
+                    <span class="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></span>
+                    <span id="statusText" class="text-xs text-slate-300 font-semibold uppercase tracking-wider">Web Mode Active</span>
+                </div>
+                <!-- Logout Trigger -->
+                <button onclick="handleLogout()" class="bg-slate-950 hover:bg-rose-950/40 hover:text-rose-400 hover:border-rose-500/20 text-slate-400 text-xs font-bold px-4 py-2 rounded-xl border border-slate-800 transition uppercase tracking-wider">
+                    Logout
+                </button>
+            </div>
+        </header>
+
+        <!-- Main Workspace -->
+        <main class="max-w-6xl mx-auto p-6 space-y-6">
+            
+            <!-- Interactive Control Panel Section -->
+            <section class="bg-slate-900/40 border border-slate-800 rounded-2xl p-6 shadow-xl backdrop-blur-sm">
+                <h2 class="text-base font-bold text-slate-200 mb-2">⚡ High-Speed Scanner Mode</h2>
+                <p class="text-xs text-slate-400 mb-6">Enter metrics. Note: Email, Serial Number, and Part Number are strictly required inputs to generate pools.</p>
+                
+                <form onsubmit="event.preventDefault(); generateMac();" class="space-y-4">
+                    <div class="grid grid-cols-1 sm:grid-cols-5 gap-4">
+                        <div class="sm:col-span-1">
+                            <label class="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">Operator Email</label>
+                            <input type="email" id="emailInput" placeholder="operator@company.com" required
+                                   class="w-full bg-[#090d16] border border-slate-800 rounded-xl px-4 py-3 text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:border-indigo-500 transition">
+                        </div>
+                        <div class="sm:col-span-1">
+                            <label class="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">Part Number (PN)</label>
+                            <input type="text" id="partInput" placeholder="Part identification..." required
+                                   class="w-full bg-[#090d16] border border-slate-800 rounded-xl px-4 py-3 text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:border-indigo-500 transition">
+                        </div>
+                        <div class="sm:col-span-1">
+                            <label class="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">Device Serial Number</label>
+                            <input type="text" id="serialInput" placeholder="Scan barcode..." required
+                                   class="w-full bg-[#090d16] border border-slate-800 rounded-xl px-4 py-3 text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:border-indigo-500 transition">
+                        </div>
+                        <div>
+                            <label id="countLabel" class="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">Allocation Count</label>
+                            <input type="number" id="countInput" value="1" min="1" max="50"
+                                   class="w-full bg-[#090d16] border border-slate-800 rounded-xl px-4 py-3 text-sm text-slate-100 focus:outline-none focus:border-indigo-500 transition">
+                        </div>
+                        <div class="flex items-end gap-2 sm:col-span-1">
+                            <button type="submit"
+                                    class="w-full bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold py-3.5 rounded-xl shadow-lg transition duration-150 uppercase tracking-wider">
+                                Generate
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Lower Control Strip (Toggle + Filter Action) -->
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-4 border-t border-slate-800/60">
+                        <div class="flex items-center gap-3">
+                            <label class="relative inline-flex items-center cursor-pointer select-none">
+                                <input type="checkbox" id="forceToggle" class="sr-only peer">
+                                <div class="w-9 h-5 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-slate-400 peer-checked:after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-rose-600"></div>
+                            </label>
+                            <span class="text-xs font-semibold text-slate-300 tracking-wide">
+                                Force Overwrite / Regenerate <span class="text-slate-500 font-normal">(Archives previous allocations to Used_Mac.db and issues fresh parameters)</span>
+                            </span>
+                        </div>
+                        <div>
+                            <button type="button" onclick="triggerSearchPipeline()"
+                                    class="w-full sm:w-auto bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold px-5 py-2.5 rounded-xl shadow-lg transition duration-150 border border-slate-700 uppercase tracking-wider">
+                                Find Registry
+                            </button>
+                        </div>
+                    </div>
+                </form>
+                
+                <!-- Dynamic Inline Logs and Alert Notifications -->
+                <div id="alertBox" class="mt-4 hidden p-4 rounded-xl text-xs font-mono whitespace-pre-line border"></div>
+            </section>
+
+            <!-- Database Selection Tabs -->
+            <div class="flex border-b border-slate-800 gap-2">
+                <button id="tabActiveBtn" onclick="switchTab('active')" class="px-5 py-3 text-xs font-bold uppercase tracking-wider border-b-2 border-indigo-500 text-indigo-400 transition">
+                    📂 Active Registry (Mac.db)
+                </button>
+                <button id="tabUsedBtn" onclick="switchTab('used')" class="px-5 py-3 text-xs font-bold uppercase tracking-wider border-b-2 border-transparent text-slate-400 hover:text-slate-200 transition">
+                    📜 Archived Overwritten Log (Used_Mac.db)
+                </button>
+            </div>
+
+            <!-- Database Output Grid View -->
+            <section class="bg-slate-900/40 border border-slate-800 rounded-2xl shadow-xl overflow-hidden backdrop-blur-sm">
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="bg-slate-900/60 text-slate-400 text-[11px] font-bold uppercase tracking-wider border-b border-slate-800">
+                                <th class="px-6 py-4">Operator Email Address</th>
+                                <th class="px-6 py-4">Part Number (PN)</th>
+                                <th class="px-6 py-4">Hardware Serial Identifier (SN)</th>
+                                <th class="px-6 py-4">Assigned Unicast MAC Address</th>
+                            </tr>
+                        </thead>
+                        <tbody id="deviceTableBody" class="divide-y divide-slate-800/60 text-xs font-mono">
+                            <!-- Instantiated asynchronously -->
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        </main>
+    </div>
 
     <script>
+        // Automatic runtime configuration endpoint matching your custom backend setup
+        const SERVER_HOST = window.location.origin === "file://" ? "http://localhost:55555" : "";
+
         let currentActiveTab = 'active';
         let highlightedMacs = []; 
-        let activeSearchQuery = null; // Caches target metrics for state persistence during tab swaps
+        let activeSearchQuery = null;
+        let isDemoMode = false; // Toggled dynamically if the backend server is offline
 
+        // Session Authentication Gatekeeper
+        function showApp() {
+            document.getElementById('loginScreen').classList.add('hidden');
+            document.getElementById('appContent').classList.remove('hidden');
+            loadDevices();
+        }
+
+        function showLogin() {
+            document.getElementById('appContent').classList.add('hidden');
+            document.getElementById('loginScreen').classList.remove('hidden');
+        }
+
+        function handleLogin(event) {
+            event.preventDefault();
+            const user = document.getElementById('usernameInput').value.trim();
+            const pass = document.getElementById('passwordInput').value.trim();
+            const errorBox = document.getElementById('loginError');
+
+            if (user === 'root' && pass === 'tt1234') {
+                sessionStorage.setItem('isLoggedIn', 'true');
+                errorBox.classList.add('hidden');
+                showApp();
+            } else {
+                errorBox.innerText = "Invalid operator credentials. Access Denied.";
+                errorBox.classList.remove('hidden');
+            }
+        }
+
+        function handleLogout() {
+            sessionStorage.removeItem('isLoggedIn');
+            document.getElementById('usernameInput').value = '';
+            document.getElementById('passwordInput').value = '';
+            document.getElementById('loginError').classList.add('hidden');
+            showLogin();
+        }
+
+        // Visual Tab Interface Coordinator
         function switchTab(targetTab) {
             currentActiveTab = targetTab;
             const activeBtn = document.getElementById('tabActiveBtn');
@@ -121,20 +229,56 @@
             loadDevices();
         }
 
+        // Helper to generate a random mock unicast MAC Address for Offline/Demo use
+        function generateRandomMockMac() {
+            const hex = "0123456789ABCDEF";
+            let mac = "00"; // Start with standard locally administered unicast prefix
+            for (let i = 0; i < 5; i++) {
+                mac += ":" + hex[Math.floor(Math.random() * 16)] + hex[Math.floor(Math.random() * 16)];
+            }
+            return mac.toUpperCase();
+        }
+
+        // Handles Demo/Local Database storage actions
+        function getLocalMockData(dbName) {
+            const data = localStorage.getItem(dbName);
+            return data ? JSON.parse(data) : [];
+        }
+
+        function saveLocalMockData(dbName, list) {
+            localStorage.setItem(dbName, JSON.stringify(list));
+        }
+
+        // Visual Clipboard Copy Action
+        async function copyToClipboard(element, mac) {
+            try {
+                await navigator.clipboard.writeText(mac);
+                const originalHTML = element.innerHTML;
+                element.innerHTML = `<span class="text-indigo-300 font-medium">Copied!</span>`;
+                setTimeout(() => {
+                    element.innerHTML = originalHTML;
+                }, 1000);
+            } catch (err) {
+                console.error("Clipboard write failed", err);
+            }
+        }
+
+        // Response Data Parser & Virtual DOM Renderer
         function renderRows(text) {
             const tbody = document.getElementById('deviceTableBody');
             const lines = text.split('\n').filter(line => line.trim());
             tbody.innerHTML = '';
             
             if (lines.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="4" class="px-6 py-10 text-center text-slate-500">No matching items found across this dataset view.</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="4" class="px-6 py-10 text-center text-slate-500">No matching records found across this database view.</td></tr>`;
                 return;
             }
 
             lines.forEach(line => {
-                const match = line.match(/IP:\s*([^\s\|]+).*PN:\s*([^\s\|]+).*SN:\s*([^\s\|]+).*MAC:\s*([^\s\|]+)/);
+                // Extracts data safely regardless of delimiter styling
+                const match = line.match(/(?:EMAIL|IP):\s*([^\s\|]+).*PN:\s*([^\s\|]+).*SN:\s*([^\s\|]+).*MAC:\s*([^\s\|]+)/i);
                 if (match) {
-                    const ip = match[1];
+                    const email = match[1];
                     const pn = match[2];
                     const sn = match[3];
                     const mac = match[4];
@@ -144,70 +288,172 @@
                         ? "bg-indigo-600/20 border-l-4 border-indigo-500 shadow-inner transition duration-500" 
                         : "hover:bg-slate-800/20 transition";
 
+                    // Creates a row with an interactive "Click to copy" MAC column
                     tbody.innerHTML += `
                         <tr class="${rowClass}">
-                            <td class="px-6 py-4 text-indigo-400">${ip}</td>
+                            <td class="px-6 py-4 text-indigo-400">${email}</td>
                             <td class="px-6 py-4 text-slate-100 font-medium">${pn}</td>
                             <td class="px-6 py-4 text-slate-400">${sn}</td>
-                            <td class="px-6 py-4 ${isNew ? 'text-amber-400 font-extrabold tracking-widest scale-105' : (currentActiveTab === 'active' ? 'text-emerald-400' : 'text-rose-400/90')} font-bold tracking-wider">${mac}</td>
+                            <td class="px-6 py-4 cursor-pointer select-all font-mono text-sm" onclick="copyToClipboard(this, '${mac}')">
+                                <span class="${isNew ? 'text-amber-400 font-extrabold tracking-widest' : (currentActiveTab === 'active' ? 'text-emerald-400' : 'text-rose-400/90')} font-bold tracking-wider hover:underline mr-2">${mac}</span>
+                                <span class="text-[10px] text-slate-500 hover:text-indigo-400 transition inline-block">📋 Copy</span>
+                            </td>
                         </tr>`;
                 }
             });
         }
 
+        // Fetch Pipeline Controller
         async function loadDevices() {
             const tbody = document.getElementById('deviceTableBody');
-            tbody.innerHTML = `<tr><td colspan="4" class="px-6 py-12 text-center text-slate-500 animate-pulse">Querying database logs...</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="4" class="px-6 py-12 text-center text-slate-500 animate-pulse">Querying backend SQLite database logs...</td></tr>`;
             
-            let endpoint = "";
-            // If active search memory exists, branch routing paths to cross-database query points
+            if (isDemoMode) {
+                loadDemoDevices();
+                return;
+            }
+
+            let url = "";
             if (activeSearchQuery) {
-                endpoint = (currentActiveTab === 'active') 
-                    ? `/find_active?sn=${activeSearchQuery.sn}&pn=${activeSearchQuery.pn}`
-                    : `/find_used?sn=${activeSearchQuery.sn}&pn=${activeSearchQuery.pn}`;
+                const endpoint = (currentActiveTab === 'active') ? '/find_active' : '/find_used';
+                url = `${SERVER_HOST}${endpoint}?sn=${activeSearchQuery.sn}&pn=${activeSearchQuery.pn}&email=${activeSearchQuery.email}`;
             } else {
-                endpoint = (currentActiveTab === 'active') ? '/showmac' : '/usedmac';
+                const endpoint = (currentActiveTab === 'active') ? '/showmac' : '/usedmac';
+                url = `${SERVER_HOST}${endpoint}`;
             }
 
             try {
-                const response = await fetch(endpoint);
+                const response = await fetch(url);
                 const text = await response.text();
+                
+                // If the response is good, keep normal operations
+                isDemoMode = false;
+                updateStatusBadge(true);
                 renderRows(text);
             } catch (err) {
-                tbody.innerHTML = `<tr><td colspan="4" class="px-6 py-10 text-center text-rose-400 font-bold">Error connecting to server.</td></tr>`;
+                // Backend is down! Engage Demo Fallback Mode
+                isDemoMode = true;
+                updateStatusBadge(false);
+                loadDemoDevices();
             }
         }
 
+        // Offline Simulator Logic
+        function loadDemoDevices() {
+            const dbName = currentActiveTab === 'active' ? 'mock_active_db' : 'mock_used_db';
+            let records = getLocalMockData(dbName);
+
+            // Filter if there's an active query search
+            if (activeSearchQuery) {
+                const snQuery = decodeURIComponent(activeSearchQuery.sn).toLowerCase();
+                const pnQuery = decodeURIComponent(activeSearchQuery.pn).toLowerCase();
+                const emailQuery = decodeURIComponent(activeSearchQuery.email).toLowerCase();
+
+                records = records.filter(item => {
+                    return (!snQuery || item.sn.toLowerCase().includes(snQuery)) &&
+                           (!pnQuery || item.pn.toLowerCase().includes(pnQuery)) &&
+                           (!emailQuery || item.email.toLowerCase().includes(emailQuery));
+                });
+            }
+
+            const textFormat = records.map(r => `EMAIL: ${r.email} | PN: ${r.pn} | SN: ${r.sn} | MAC: ${r.mac}`).join('\n');
+            renderRows(textFormat);
+        }
+
+        // UI Header Status Banner Updater
+        function updateStatusBadge(online) {
+            const badge = document.getElementById('statusBadge');
+            const text = document.getElementById('statusText');
+            const indicator = badge.querySelector('span');
+
+            if (online) {
+                badge.className = "bg-slate-900 border border-slate-800 px-4 py-2 rounded-xl flex items-center gap-2";
+                indicator.className = "w-2 h-2 bg-emerald-500 rounded-full animate-pulse";
+                text.innerText = "Web Mode Active";
+            } else {
+                badge.className = "bg-amber-950/40 border border-amber-500/20 px-4 py-2 rounded-xl flex items-center gap-2";
+                indicator.className = "w-2 h-2 bg-amber-500 rounded-full animate-pulse";
+                text.innerText = "Local Simulator Mode";
+            }
+        }
+
+        // Allocation & Generator Action Trigger
         async function generateMac() {
+            const emailField = document.getElementById('emailInput');
             const inputField = document.getElementById('serialInput');
             const partField = document.getElementById('partInput');
             const countField = document.getElementById('countInput');
             const forceToggle = document.getElementById('forceToggle');
             const alertBox = document.getElementById('alertBox');
             
+            const email = emailField.value.trim();
             const sn = inputField.value.trim();
             const pn = partField.value.trim();
             const count = parseInt(countField.value.trim()) || 1;
 
-            if (!sn || !pn) {
+            if (!email || !sn || !pn) {
                 alertBox.className = "mt-4 p-4 rounded-xl text-xs bg-amber-950/40 border border-amber-500/20 text-amber-300";
-                alertBox.innerText = "Error: Input fields missing. Both Part Number and Serial Number must be scanned to run generation pipelines.";
+                alertBox.innerText = "Error: Input fields missing. Email, Part Number, and Serial Number must be provided to run generation pipelines.";
                 alertBox.classList.remove('hidden');
                 return;
             }
 
-            // Client-side protective validation check mirroring backend safeguards
             if (count > 50) {
                 alertBox.className = "mt-4 p-4 rounded-xl text-xs bg-rose-950/40 border border-rose-500/20 text-rose-300 font-bold";
-                alertBox.innerText = "Operation Rejected: Allocation requests cannot exceed 50 per cycle to ensure memory buffer safety limits.";
+                alertBox.innerText = "Operation Rejected: Allocation requests cannot exceed 50 per cycle.";
                 alertBox.classList.remove('hidden');
                 return;
             }
 
-            activeSearchQuery = null; // Clear search constraints upon issuing fresh allocations
+            activeSearchQuery = null;
             const isForceMode = forceToggle.checked;
+
+            // --- IF OFFLINE: RUN DEMO LOGIC ---
+            if (isDemoMode) {
+                let activeList = getLocalMockData('mock_active_db');
+                let usedList = getLocalMockData('mock_used_db');
+
+                const existingIndex = activeList.findIndex(item => item.sn === sn && item.pn === pn);
+
+                if (existingIndex !== -1 && !isForceMode) {
+                    alertBox.className = "mt-4 p-4 rounded-xl text-xs bg-amber-950/40 border border-amber-500/20 text-amber-300";
+                    alertBox.innerText = `Allocation Conflict: Serial "${sn}" already registered. Use 'Force Overwrite' mode to archive previous allocations.`;
+                    alertBox.classList.remove('hidden');
+                    return;
+                }
+
+                // Archive the duplicate if Force Mode is active
+                if (existingIndex !== -1 && isForceMode) {
+                    const archivedItem = activeList.splice(existingIndex, 1)[0];
+                    usedList.unshift(archivedItem);
+                }
+
+                // Generate new MAC list
+                let newMacs = [];
+                for (let i = 0; i < count; i++) {
+                    const newMac = generateRandomMockMac();
+                    newMacs.push(newMac);
+                    activeList.unshift({ email, pn, sn, mac: newMac });
+                }
+
+                saveLocalMockData('mock_active_db', activeList);
+                saveLocalMockData('mock_used_db', usedList);
+
+                highlightedMacs = newMacs;
+                alertBox.classList.add('hidden');
+                
+                // Clear and shift focus back to barcode input field automatically for the next scan
+                inputField.value = ''; 
+                inputField.focus();
+
+                currentActiveTab = 'active';
+                switchTab('active');
+                return;
+            }
+
+            // --- IF ONLINE: PROCEED WITH SERVER PIPELINE ---
             const endpoint = isForceMode ? '/force_gen' : '/gmac';
-            let url = `${endpoint}?sn=${encodeURIComponent(sn)}&pn=${encodeURIComponent(pn)}&count=${count}`;
+            const url = `${SERVER_HOST}${endpoint}?sn=${encodeURIComponent(sn)}&pn=${encodeURIComponent(pn)}&email=${encodeURIComponent(email)}&count=${count}`;
 
             try {
                 const response = await fetch(url);
@@ -218,9 +464,10 @@
                     highlightedMacs = result.match(macRegex) || [];
 
                     alertBox.classList.add('hidden');
-                    inputField.value = ''; 
+                    inputField.value = ''; // Clear scanner field for the next physical asset
                     inputField.focus();
                     
+                    // Switch interface view dynamically to show newly created active record
                     currentActiveTab = 'active';
                     document.getElementById('tabActiveBtn').className = "px-5 py-3 text-xs font-bold uppercase tracking-wider border-b-2 border-indigo-500 text-indigo-400 transition";
                     document.getElementById('tabUsedBtn').className = "px-5 py-3 text-xs font-bold uppercase tracking-wider border-b-2 border-transparent text-slate-400 hover:text-slate-200 transition";
@@ -233,43 +480,47 @@
                     alertBox.classList.remove('hidden');
                 }
             } catch (err) {
-                highlightedMacs = [];
-                alertBox.className = "mt-4 p-4 rounded-xl text-xs bg-rose-950/40 border border-rose-500/20 text-rose-300";
-                alertBox.innerText = "Critical network communication failure.";
-                alertBox.classList.remove('hidden');
+                // If it crashes during submission, fallback to Demo instantly without hard-failing the line
+                isDemoMode = true;
+                updateStatusBadge(false);
+                generateMac(); 
             }
         }
 
-        // Commits look-up params to memory cache and fetches current view allocations immediately
+        // Active Directory Filtering Pipeline
         function triggerSearchPipeline() {
+            const emailField = document.getElementById('emailInput');
             const inputField = document.getElementById('serialInput');
             const partField = document.getElementById('partInput');
             const alertBox = document.getElementById('alertBox');
             
+            const email = emailField.value.trim();
             const sn = inputField.value.trim();
             const pn = partField.value.trim();
 
-            if (!sn && !pn) {
-                alertBox.className = "mt-4 p-4 rounded-xl text-xs bg-amber-950/40 border border-amber-500/20 text-amber-300";
-                alertBox.innerText = "Error: Enter a Part Number, Serial Number, or both fields to filter searches.";
-                alertBox.classList.remove('hidden');
+            if (!email && !sn && !pn) {
+                clearSearchFilter();
                 return;
             }
 
-            // Setup criteria memory parameters globally
-            activeSearchQuery = { sn: encodeURIComponent(sn), pn: encodeURIComponent(pn) };
+            activeSearchQuery = { 
+                sn: encodeURIComponent(sn), 
+                pn: encodeURIComponent(pn), 
+                email: encodeURIComponent(email) 
+            };
             
-            // Build temporary search warning banner containing a quick clearing link
             alertBox.className = "mt-4 p-4 rounded-xl text-xs bg-indigo-950/40 border border-indigo-500/30 text-indigo-300 flex justify-between items-center";
-            alertBox.innerHTML = `<span>🔍 Active Filter Matrix Engaged. Toggling tabs will now sort results across respective active and archive tables.</span>
+            alertBox.innerHTML = `<span>🔍 Active Filter Matrix Engaged. Showing matched database logs without security restrictions.</span>
                                   <button onclick="clearSearchFilter()" class="bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-3 py-1 rounded-md transition uppercase tracking-wider text-[10px]">Clear Filter</button>`;
             alertBox.classList.remove('hidden');
 
             highlightedMacs = []; 
-            loadDevices(); // Launch load pipeline using newly defined routing states
+            loadDevices();
         }
 
+        // Reset Filter Matrix View
         function clearSearchFilter() {
+            document.getElementById('emailInput').value = "";
             document.getElementById('serialInput').value = "";
             document.getElementById('partInput').value = "";
             document.getElementById('alertBox').classList.add('hidden');
@@ -277,7 +528,14 @@
             loadDevices();
         }
 
-        window.onload = loadDevices;
+        // Initial Security Load Execution Hook
+        window.onload = function() {
+            if (sessionStorage.getItem('isLoggedIn') === 'true') {
+                showApp();
+            } else {
+                showLogin();
+            }
+        };
     </script>
 </body>
 </html>
