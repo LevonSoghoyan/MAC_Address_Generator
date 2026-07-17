@@ -53,67 +53,53 @@ $ sudo vim /etc/nginx/sites-available/default
 Wipe old placeholder entries completely and paste this proxy architecture map:
 
 
-server {
 
+
+	server {
     listen 80;
-    server_name 10.101.0.6;
-    return 301 https://$host$request_uri;
+    listen [::]:80;
 
-	}
-server {
-        listen 443 ssl;
-        server_name 10.101.0.6;
+    server_name 10.1.0.102;
 
-        ssl_certificate /etc/ssl/certs/nginx-selfsigned.crt;
-        ssl_certificate_key /etc/ssl/private/nginx-selfsigned.key;
+    root /var/www/html;
+    index index.html;
 
-        ssl_protocols TLSv1.2 TLSv1.3;
-        ssl_ciphers HIGH:!aNULL:!MD5;
+    access_log /var/log/nginx/mac_gen_access.log;
+    error_log /var/log/nginx/mac_gen_error.log;
 
-        location / {
-                root /var/www/html/mac_portal;
-                index index.html;
-                try_files $uri $uri/ =404;
-        }
+    location / {
+        try_files $uri $uri/ =404;
+    }
 
-        location /gmac {
-                proxy_pass http://127.0.0.1:55555;
-                proxy_set_header Host $host;
-                proxy_set_header X-Real-IP $remote_addr;
-                proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-                proxy_set_header X-Forwarded-Proto $scheme;
-        }
+    location ~ ^/(gmac|force_gen|showmac|usedmac|find_active|find_used) {
+        proxy_pass http://127.0.0.1:55555;
 
-        location /force_gen {
-                proxy_pass http://127.0.0.1:55555;
-                proxy_set_header Host $host;
-                proxy_set_header X-Real-IP $remote_addr;
-                proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-                proxy_set_header X-Forwarded-Proto $scheme;
-        }
-        location /usedmac {
-                proxy_pass http://127.0.0.1:55555;
-                proxy_set_header Host $host;
-                proxy_set_header X-Real-IP $remote_addr;
-                proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-                proxy_set_header X-Forwarded-Proto $scheme;
-        }
-        location /showmac {
-                proxy_pass http://127.0.0.1:55555;
-                proxy_set_header Host $host;
-                proxy_set_header X-Real-IP $remote_addr;
-                proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-                proxy_set_header X-Forwarded-Proto $scheme;
-        }
-        location /find_active {
-                proxy_pass http://127.0.0.1:55555;
-                proxy_set_header X-Real-IP $remote_addr;
-        }
+        proxy_set_header Authorization "";
 
-        location /find_used {
-                proxy_pass http://127.0.0.1:55555;
-                proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Real-EMAIL $http_x_real_email;
+
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        add_header 'Access-Control-Allow-Origin' '*' always;
+        add_header 'Access-Control-Allow-Methods' 'GET, POST, OPTIONS' always;
+        add_header 'Access-Control-Allow-Headers' 'DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range,X-Real-EMAIL' always;
+
+        if ($request_method = 'OPTIONS') {
+            add_header 'Access-Control-Allow-Origin' '*';
+            add_header 'Access-Control-Allow-Methods' 'GET, POST, OPTIONS';
+            add_header 'Access-Control-Allow-Headers' 'DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range,X-Real-EMAIL';
+            add_header 'Access-Control-Max-Age' 1728000;
+            add_header 'Content-Type' 'text/plain; charset=utf-8';
+            add_header 'Content-Length' 0;
+            return 204;
         }
+        proxy_connect_timeout 90s;
+        proxy_send_timeout 90s;
+        proxy_read_timeout 90s;
+    }
 }
 
 
