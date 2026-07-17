@@ -1,0 +1,25 @@
+#!/bin/bash
+
+set -e
+
+echo "=== Starting deployment ==="
+
+echo "Copying index.html..."
+sudo cp index.html /var/www/html/mac_portal/index.html
+
+echo "Cleaning and building..."
+make clean
+make
+
+set +e
+
+echo "Restarting Nginx..."
+sudo systemctl restart nginx.service
+
+echo "Starting web_server in the background..."
+sudo ./web_server &
+
+echo "Starting SYNC in the background..."
+sudo ./SYNC &
+
+echo "=== Deployment script finished successfully ==="
