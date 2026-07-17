@@ -83,7 +83,7 @@
                 <h2 class="text-base font-bold text-slate-200 mb-2">⚡ High-Speed Scanner Mode</h2>
                 <p class="text-xs text-slate-400 mb-6">Enter metrics. Note: Email, Serial Number, and Part Number are strictly required inputs to generate pools.</p>
                 
-                <form onsubmit="event.preventDefault(); generateMac();" class="space-y-4">
+                <form id="generatorForm" onsubmit="event.preventDefault(); generateMac();" class="space-y-4">
                     <div class="grid grid-cols-1 sm:grid-cols-5 gap-4">
                         <div class="sm:col-span-1">
                             <label class="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">Operator Email</label>
@@ -106,8 +106,8 @@
                                    class="w-full bg-[#090d16] border border-slate-800 rounded-xl px-4 py-3 text-sm text-slate-100 focus:outline-none focus:border-indigo-500 transition">
                         </div>
                         <div class="flex items-end gap-2 sm:col-span-1">
-                            <button type="submit"
-                                    class="w-full bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold py-3.5 rounded-xl shadow-lg transition duration-150 uppercase tracking-wider">
+                            <button id="generateButton" type="submit"
+                                    class="w-full bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold py-3.5 rounded-xl shadow-lg transition duration-150 uppercase tracking-wider disabled:opacity-50 disabled:cursor-not-allowed">
                                 Generate
                             </button>
                         </div>
@@ -170,18 +170,144 @@
 
     <script>
         // Automatic runtime configuration endpoint matching your custom backend setup
-        const SERVER_HOST = window.location.origin === "file://" ? "http://localhost:55555" : "";
+        const SERVER_HOST = window.location.protocol === "file:" ? "http://localhost:55555" : "";
 
         let currentActiveTab = 'active';
-        let highlightedMacs = []; 
+        let highlightedMacs = [];
         let activeSearchQuery = null;
         let isDemoMode = false; // Toggled dynamically if the backend server is offline
+        let pendingGeneratorRequest = null;
+        let generationInProgress = false;
+
+        /**
+         * Reads an incoming generator request from the page URL.
+         *
+         * Supported example:
+         *   /?email=operator%40company.com&pn=TT314&sn=SN000123&count=2&generate=1
+         *
+         * "generate" may be: 1, true, yes, or on.
+         */
+        function readGeneratorRequestFromUrl() {
+            const params = new URLSearchParams(window.location.search);
+
+            const email = (params.get('email') || '').trim();
+            const pn = (params.get('pn') || params.get('part_number') || '').trim();
+            const sn = (params.get('sn') || params.get('serial_number') || '').trim();
+
+            const countText = (params.get('count') || '1').trim();
+            let count = Number.parseInt(countText, 10);
+
+            const generateText = (
+                params.get('generate') ||
+                params.get('auto_generate') ||
+                ''
+            ).trim().toLowerCase();
+
+            const autoGenerate = ['1', 'true', 'yes', 'on'].includes(generateText);
+
+            // No incoming generator data is present.
+            if (!email && !pn && !sn && !params.has('count')) {
+                return null;
+            }
+
+            if (!Number.isInteger(count) || count < 1) {
+                count = 1;
+            } else if (count > 50) {
+                count = 50;
+            }
+
+            return {
+                email,
+                pn,
+                sn,
+                count,
+                autoGenerate
+            };
+        }
+
+        /**
+         * Removes generator parameters from the address bar after they have
+         * been copied into the form. This prevents accidental resubmission
+         * after page refresh and avoids leaving production data in history.
+         */
+        function clearGeneratorParametersFromUrl() {
+            try {
+                const url = new URL(window.location.href);
+                const parameterNames = [
+                    'email',
+                    'pn',
+                    'part_number',
+                    'sn',
+                    'serial_number',
+                    'count',
+                    'generate',
+                    'auto_generate'
+                ];
+
+                parameterNames.forEach(name => url.searchParams.delete(name));
+
+                const cleanUrl =
+                    url.pathname +
+                    (url.searchParams.toString() ? `?${url.searchParams.toString()}` : '') +
+                    url.hash;
+
+                window.history.replaceState({}, document.title, cleanUrl);
+            } catch (err) {
+                // Some browsers restrict history changes for pages opened
+                // directly with file://. Form processing can continue safely.
+                console.warn('Could not clean generator parameters from URL:', err);
+            }
+        }
+
+        /**
+         * Fills the existing web form with the incoming request and, when
+         * requested, presses Generate through normal HTML form submission.
+         */
+        function applyIncomingGeneratorRequest(request) {
+            const emailField = document.getElementById('emailInput');
+            const partField = document.getElementById('partInput');
+            const serialField = document.getElementById('serialInput');
+            const countField = document.getElementById('countInput');
+            const form = document.getElementById('generatorForm');
+            const alertBox = document.getElementById('alertBox');
+
+            emailField.value = request.email;
+            partField.value = request.pn;
+            serialField.value = request.sn;
+            countField.value = request.count;
+
+            clearGeneratorParametersFromUrl();
+
+            if (!request.autoGenerate) {
+                serialField.focus();
+                return;
+            }
+
+            if (!request.email || !request.pn || !request.sn) {
+                alertBox.className = "mt-4 p-4 rounded-xl text-xs bg-amber-950/40 border border-amber-500/20 text-amber-300";
+                alertBox.innerText = "Incoming request is incomplete. Email, Part Number, and Serial Number are required before automatic generation.";
+                alertBox.classList.remove('hidden');
+                return;
+            }
+
+            // requestSubmit() performs browser validation and executes the
+            // form's existing onsubmit handler, exactly like clicking Generate.
+            window.requestAnimationFrame(() => form.requestSubmit());
+        }
 
         // Session Authentication Gatekeeper
         function showApp() {
             document.getElementById('loginScreen').classList.add('hidden');
             document.getElementById('appContent').classList.remove('hidden');
             loadDevices();
+
+            // If the page was opened with generator parameters, wait until the
+            // authorized application is visible before filling/submitting it.
+            if (pendingGeneratorRequest !== null) {
+                const request = pendingGeneratorRequest;
+                pendingGeneratorRequest = null;
+                applyIncomingGeneratorRequest(request);
+            }
         }
 
         function showLogin() {
@@ -296,7 +422,7 @@
                             <td class="px-6 py-4 text-slate-400">${sn}</td>
                             <td class="px-6 py-4 cursor-pointer select-all font-mono text-sm" onclick="copyToClipboard(this, '${mac}')">
                                 <span class="${isNew ? 'text-amber-400 font-extrabold tracking-widest' : (currentActiveTab === 'active' ? 'text-emerald-400' : 'text-rose-400/90')} font-bold tracking-wider hover:underline mr-2">${mac}</span>
-                                <span class="text-[10px] text-slate-500 hover:text-indigo-400 transition inline-block">📋 Copy</span>
+                                <span class="text-[10px] text-slate-500 hover:text-indigo-400 transition inline-block"></span>
                             </td>
                         </tr>`;
                 }
@@ -377,8 +503,18 @@
             }
         }
 
+        function setGenerationBusy(isBusy) {
+            const button = document.getElementById('generateButton');
+            generationInProgress = isBusy;
+            button.disabled = isBusy;
+            button.innerText = isBusy ? 'Generating...' : 'Generate';
+        }
+
         // Allocation & Generator Action Trigger
         async function generateMac() {
+            if (generationInProgress) {
+                return;
+            }
             const emailField = document.getElementById('emailInput');
             const inputField = document.getElementById('serialInput');
             const partField = document.getElementById('partInput');
@@ -398,9 +534,9 @@
                 return;
             }
 
-            if (count > 50) {
+            if (count < 1 || count > 50) {
                 alertBox.className = "mt-4 p-4 rounded-xl text-xs bg-rose-950/40 border border-rose-500/20 text-rose-300 font-bold";
-                alertBox.innerText = "Operation Rejected: Allocation requests cannot exceed 50 per cycle.";
+                alertBox.innerText = "Operation Rejected: Allocation count must be between 1 and 50.";
                 alertBox.classList.remove('hidden');
                 return;
             }
@@ -455,10 +591,15 @@
             const endpoint = isForceMode ? '/force_gen' : '/gmac';
             const url = `${SERVER_HOST}${endpoint}?sn=${encodeURIComponent(sn)}&pn=${encodeURIComponent(pn)}&email=${encodeURIComponent(email)}&count=${count}`;
 
+            setGenerationBusy(true);
+
             try {
-                const response = await fetch(url);
+                const response = await fetch(url, {
+                    method: 'GET',
+                    credentials: 'same-origin'
+                });
                 const result = await response.text();
-                
+
                 if (response.ok && !result.toLowerCase().includes('error')) {
                     const macRegex = /([0-9A-F]{2}:){5}[0-9A-F]{2}/gi;
                     highlightedMacs = result.match(macRegex) || [];
@@ -480,10 +621,14 @@
                     alertBox.classList.remove('hidden');
                 }
             } catch (err) {
-                // If it crashes during submission, fallback to Demo instantly without hard-failing the line
+                // If it crashes during submission, fallback to Demo instantly without hard-failing the line.
                 isDemoMode = true;
                 updateStatusBadge(false);
-                generateMac(); 
+                setGenerationBusy(false);
+                generateMac();
+                return;
+            } finally {
+                setGenerationBusy(false);
             }
         }
 
@@ -530,6 +675,8 @@
 
         // Initial Security Load Execution Hook
         window.onload = function() {
+            pendingGeneratorRequest = readGeneratorRequestFromUrl();
+
             if (sessionStorage.getItem('isLoggedIn') === 'true') {
                 showApp();
             } else {
